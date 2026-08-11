@@ -1,7 +1,10 @@
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import "server-only";
 
-export type UserRole = "ADMIN" | "WHOLESALE_SELLER" | "NUT_STORE" | "CUSTOMER";
+import { cache } from "react";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { isUserRole, type UserRole } from "@/lib/roles";
+
+export type { UserRole } from "@/lib/roles";
 
 export interface AppUser {
   id: string;
@@ -9,44 +12,30 @@ export interface AppUser {
   role: UserRole;
 }
 
-export async function getServerUser(): Promise<AppUser | null> {
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
-          } catch {
-            // ignore in server components
-          }
-        },
-      },
-    }
-  );
+export const getServerUser = cache(async () => {
+  const supabase = await createSupabaseServerClient();
+  const { data: claimsData, error: claimsError } = await supabase.auth.getClaims();
+  const userId = claimsData?.claims?.sub;
 
-  const { data: { user }, error } = await supabase.auth.getUser();
-  if (error || !user?.email) return null;
+  if (claimsError || !userId) return null;
 
-  const role = ((await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle()).data?.role ?? "CUSTOMER") as UserRole;
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("email, role")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (profileError || !profile || !isUserRole(profile.role)) return null;
 
   return {
-    id: user.id,
-    email: user.email,
-    role,
-  };
-}
+    id: userId,
+    email: profile.email,
+    role: profile.role,
+  } satisfies AppUser;
+});
 
-export async function requireRole(allowedRoles: UserRole[]) {
+export async function requireRole(allowedRoles: readonly UserRole[]) {
   const user = await getServerUser();
-  if (!user) return null;
-  if (!allowedRoles.includes(user.role)) return null;
+  if (!user || !allowedRoles.includes(user.role)) return null;
   return user;
 }
