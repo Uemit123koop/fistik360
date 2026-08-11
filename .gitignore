@@ -39,3 +39,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# agent tooling (npx skills add ile kurulur; .claude/skills symlink icerir)
+.agents/
+.claude/skills/
+
+# scratch
+/tmp
+/.tmp
