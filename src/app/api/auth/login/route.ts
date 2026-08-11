@@ -1,35 +1,29 @@
 import { NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
 
 export async function POST(request: Request) {
-  const { email, password } = await request.json();
+  const body = (await request.json().catch(() => null)) as { email?: unknown } | null;
+  const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
 
-  if (!email || !password) {
-    return NextResponse.json({ error: "E-posta ve şifre gerekli" }, { status: 400 });
+  if (!/^[^s@]+@[^s@]+.[^s@]+$/.test(email)) {
+    return NextResponse.json({ error: "Geçerli bir e-posta adresi girin." }, { status: 400 });
   }
 
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options));
-        },
-      },
-    }
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: { shouldCreateUser: false },
+  });
+
+  if (error) {
+    return NextResponse.json(
+      { error: error.status === 429 ? "Çok sık kod istendi. Lütfen biraz bekleyin." : "Giriş kodu gönderilemedi." },
+      { status: error.status === 429 ? 429 : 400 },
+    );
+  }
+
+  return NextResponse.json(
+    { ok: true, otpSent: true },
+    { headers: { "Cache-Control": "private, no-store" } },
   );
-
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-
-  if (error || !data.user) {
-    return NextResponse.json({ error: error?.message ?? "Giriş başarısız" }, { status: 401 });
-  }
-
-  return NextResponse.json({ user: data.user });
 }

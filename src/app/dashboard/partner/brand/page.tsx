@@ -1,0 +1,5 @@
+import { notFound } from "next/navigation";
+import { getActivePartner } from "@/lib/partner-auth";
+import { createSupabaseAdminClient } from "@/lib/supabase-admin";
+
+export default async function PartnerBrandPage() { const access = await getActivePartner(); if (!access) notFound(); const { data } = await createSupabaseAdminClient().from("brands").select("name, slug, description, is_verified, is_active").eq("partner_id", access.partner.id).maybeSingle(); if (!data) notFound(); return <div><p className="eyebrow">Markam</p><h1 className="mt-2 text-3xl font-bold">{data.name}</h1><div className="mt-5 flex gap-2"><span className="badge-success">{data.is_verified ? "Doğrulanmış" : "Doğrulama bekliyor"}</span><span className="chip">{data.is_active ? "Yayında" : "Kapalı"}</span></div><p className="mt-6 max-w-3xl whitespace-pre-wrap leading-7 text-[var(--color-muted-text)]">{data.description}</p><p className="mt-6 text-sm"><span className="data-label">Vitrin adresi</span><span className="data-value">/marka/{data.slug}</span></p></div>; }

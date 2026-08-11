@@ -1,39 +1,33 @@
 import { NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
 
 export async function POST(request: Request) {
-  const { email, password, role } = await request.json();
+  const body = (await request.json().catch(() => null)) as { email?: unknown; fullName?: unknown } | null;
+  const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
+  const fullName = typeof body?.fullName === "string" ? body.fullName.trim().slice(0, 120) : "";
 
-  if (!email || !password) {
-    return NextResponse.json({ error: "E-posta ve şifre gerekli" }, { status: 400 });
+  if (!/^[^s@]+@[^s@]+.[^s@]+$/.test(email) || !fullName) {
+    return NextResponse.json({ error: "Ad soyad ve geçerli e-posta adresi gerekli." }, { status: 400 });
   }
 
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options));
-        },
-      },
-    }
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: {
+      shouldCreateUser: true,
+      data: { full_name: fullName },
+    },
+  });
+
+  if (error) {
+    return NextResponse.json(
+      { error: error.status === 429 ? "Çok sık kod istendi. Lütfen biraz bekleyin." : "Kayıt kodu gönderilemedi." },
+      { status: error.status === 429 ? 429 : 400 },
+    );
+  }
+
+  return NextResponse.json(
+    { ok: true, otpSent: true },
+    { status: 201, headers: { "Cache-Control": "private, no-store" } },
   );
-
-  const { data, error } = await supabase.auth.signUp({ email, password });
-  if (error || !data.user) {
-    return NextResponse.json({ error: error?.message ?? "Kayıt başarısız" }, { status: 400 });
-  }
-
-  const allowedRoles = ["ADMIN", "WHOLESALE_SELLER", "NUT_STORE", "CUSTOMER"];
-  const safeRole = allowedRoles.includes(role) ? role : "CUSTOMER";
-
-  await supabase.from("profiles").upsert({ id: data.user.id, email, role: safeRole });
-
-  return NextResponse.json({ user: data.user, role: safeRole });
 }

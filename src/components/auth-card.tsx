@@ -2,68 +2,89 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { ArrowIcon, ShieldIcon } from "@/components/marketplace-ui";
 
-export function AuthCard() {
+interface AuthCardProps { initialError?: string; }
+
+export function AuthCard({ initialError = "" }: AuthCardProps) {
   const router = useRouter();
-  const [mode, setMode] = useState<"login" | "register">("login");
-  const [email, setEmail] = useState("demo@fistik360.com");
-  const [password, setPassword] = useState("password123");
-  const [role, setRole] = useState("CUSTOMER");
-  const [error, setError] = useState<string | null>(null);
+  const [mode, setMode] = useState("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState(initialError);
+  const [confirmationEmail, setConfirmationEmail] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
+  function changeMode(nextMode: string) {
+    setMode(nextMode);
+    setError("");
+    setConfirmationEmail("");
+  }
 
-    const endpoint = mode === "login" ? "/api/auth/login" : "/api/auth/register";
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, role }),
-    });
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    setError("");
+    setIsSubmitting(true);
 
-    const result = await response.json();
-    if (!response.ok) {
-      setError(result.error ?? "İşlem başarısız");
-      return;
+    try {
+      const endpoint = mode === "login" ? "/api/auth/login" : "/api/auth/register";
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        setError(result.error ?? "İşlem başarısız");
+        return;
+      }
+
+      if (result.requiresEmailConfirmation) {
+        setConfirmationEmail(email);
+        return;
+      }
+
+      router.replace(result.redirectTo ?? "/dashboard");
+      router.refresh();
+    } catch {
+      setError("Bağlantı hatası. Lütfen tekrar deneyin.");
+    } finally {
+      setIsSubmitting(false);
     }
+  }
 
-    router.push(`/dashboard/${roleToRoute(role)}`);
+  if (confirmationEmail) {
+    return (
+      <div className="rounded-[18px] border border-[var(--color-primary-light)] bg-[var(--color-primary-soft)] p-5" role="status" aria-live="polite">
+        <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-[var(--color-primary-dark)]"><ShieldIcon /></span>
+        <p className="mt-4 text-lg font-bold text-[var(--color-ink)]">E-postanı doğrula</p>
+        <p className="mt-2 text-sm leading-6 text-[var(--color-muted-text)]"><strong className="text-[var(--color-ink)]">{confirmationEmail}</strong> adresine gönderilen bağlantıyı açarak hesabını etkinleştir. Ardından giriş yapabilirsin.</p>
+        <button type="button" onClick={() => changeMode("login")} className="button-primary mt-5 w-full">Girişe dön <ArrowIcon /></button>
+      </div>
+    );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="flex gap-2">
-        <button type="button" onClick={() => setMode("login")} className={`flex-1 rounded-full px-3 py-2 text-sm font-semibold ${mode === "login" ? "bg-[#4f6b3c] text-white" : "bg-[#f4e8cc] text-[#7a5b2d]"}`}>
-          Giriş
-        </button>
-        <button type="button" onClick={() => setMode("register")} className={`flex-1 rounded-full px-3 py-2 text-sm font-semibold ${mode === "register" ? "bg-[#4f6b3c] text-white" : "bg-[#f4e8cc] text-[#7a5b2d]"}`}>
-          Kayıt
-        </button>
+    <form onSubmit={handleSubmit} className="space-y-5" aria-busy={isSubmitting}>
+      <div className="grid grid-cols-2 rounded-[14px] bg-[var(--color-surface-strong)] p-1" aria-label="Kimlik doğrulama modu">
+        <button type="button" onClick={() => changeMode("login")} className={`min-h-11 rounded-[11px] px-3 text-sm font-bold transition duration-200 ${mode === "login" ? "bg-white text-[var(--color-primary-dark)] shadow-sm" : "text-[var(--color-muted-text)] hover:text-[var(--color-ink)]"}`} aria-pressed={mode === "login"}>Giriş</button>
+        <button type="button" onClick={() => changeMode("register")} className={`min-h-11 rounded-[11px] px-3 text-sm font-bold transition duration-200 ${mode === "register" ? "bg-white text-[var(--color-primary-dark)] shadow-sm" : "text-[var(--color-muted-text)] hover:text-[var(--color-ink)]"}`} aria-pressed={mode === "register"}>Kayıt</button>
       </div>
 
-      {mode === "register" && (
-        <select value={role} onChange={(e) => setRole(e.target.value)} className="w-full rounded-2xl border border-[#d9c8a1] bg-[#fffaf2] px-4 py-3 text-sm">
-          <option value="CUSTOMER">Müşteri</option>
-          <option value="NUT_STORE">Kuruyemişçi</option>
-          <option value="WHOLESALE_SELLER">Toptancı</option>
-          <option value="ADMIN">Admin</option>
-        </select>
-      )}
+      <label className="form-field" htmlFor="auth-email">E-posta
+        <input id="auth-email" value={email} onChange={(event) => setEmail(event.target.value)} className="form-control" type="email" autoComplete="email" placeholder="ornek@eposta.com" required />
+      </label>
+      <label className="form-field" htmlFor="auth-password">Şifre
+        <input id="auth-password" value={password} onChange={(event) => setPassword(event.target.value)} className="form-control" type="password" autoComplete={mode === "login" ? "current-password" : "new-password"} minLength={6} placeholder="En az 6 karakter" required />
+        {mode === "register" && <span className="text-xs font-normal text-[var(--color-muted-text)]">Hesabını etkinleştirmek için e-posta doğrulaması gerekir.</span>}
+      </label>
 
-      <input value={email} onChange={(e) => setEmail(e.target.value)} className="w-full rounded-2xl border border-[#d9c8a1] bg-[#fffaf2] px-4 py-3 text-sm" placeholder="E-posta" type="email" />
-      <input value={password} onChange={(e) => setPassword(e.target.value)} className="w-full rounded-2xl border border-[#d9c8a1] bg-[#fffaf2] px-4 py-3 text-sm" placeholder="Şifre" type="password" />
-      {error && <p className="text-sm text-red-600">{error}</p>}
-      <button type="submit" className="w-full rounded-full bg-[#4f6b3c] px-4 py-3 font-semibold text-white">
-        {mode === "login" ? "Giriş yap" : "Hesap oluştur"}
+      {error && <p className="rounded-[12px] border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800" role="alert">{error}</p>}
+
+      <button type="submit" disabled={isSubmitting} className="button-primary w-full">
+        {isSubmitting ? <><span className="loading-dot" aria-hidden="true" /> İşleniyor...</> : mode === "login" ? <>Giriş yap <ArrowIcon /></> : <>Hesap oluştur <ArrowIcon /></>}
       </button>
     </form>
   );
-}
-
-function roleToRoute(role: string) {
-  if (role === "ADMIN") return "admin";
-  if (role === "WHOLESALE_SELLER") return "wholesale";
-  if (role === "NUT_STORE") return "store";
-  return "customer";
 }

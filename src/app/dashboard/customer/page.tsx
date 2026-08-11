@@ -1,4 +1,10 @@
-export default function CustomerDashboardPage() {
+import { notFound } from "next/navigation";
+import { requireRole } from "@/lib/auth";
+
+export default async function CustomerDashboardPage() {
+  const user = await requireRole(["CUSTOMER"]);
+  if (!user) notFound();
+
   return (
     <div className="space-y-6">
       <div>

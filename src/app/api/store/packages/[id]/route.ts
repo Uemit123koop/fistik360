@@ -1,0 +1,32 @@
+import { NextResponse } from "next/server";
+import { getServerUser } from "@/lib/auth";
+import { isUuid } from "@/lib/cart";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
+
+export async function PATCH(request: Request, { params }: RouteContext<"/api/store/packages/[id]">) {
+  const user = await getServerUser();
+  if (!user) return NextResponse.json({ error: "Önce giriş yapın." }, { status: 401 });
+  if (user.role !== "NUT_STORE") return NextResponse.json({ error: "Bu işlem yalnız kuruyemişçi hesabına açıktır." }, { status: 403 });
+
+  const { id } = await params;
+  const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+  const price = Number(body?.price);
+  if (!isUuid(id) || !Number.isFinite(price) || price <= 0) {
+    return NextResponse.json({ error: "Paket ve fiyat bilgisini kontrol edin." }, { status: 400 });
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data: store } = await supabase.from("stores").select("id").eq("owner_id", user.id).order("created_at").limit(1).maybeSingle();
+  if (!store) return NextResponse.json({ error: "Mağaza kaydı bulunamadı." }, { status: 404 });
+
+  const { data, error } = await supabase
+    .from("packages")
+    .update({ price, is_active: body?.isActive === true })
+    .eq("id", id)
+    .eq("store_id", store.id)
+    .select("id")
+    .maybeSingle();
+  if (error) return NextResponse.json({ error: "Paket güncellenemedi." }, { status: 400 });
+  if (!data) return NextResponse.json({ error: "Paket bulunamadı." }, { status: 404 });
+  return NextResponse.json({ ok: true });
+}
