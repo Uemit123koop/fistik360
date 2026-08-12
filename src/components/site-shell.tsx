@@ -37,6 +37,11 @@ export async function SiteShell({ children }: { children: React.ReactNode }) {
                     Giriş yap <ArrowIcon className="hidden h-4 w-4 sm:block" />
                   </AuthTriggerButton>
                 )}
+                {user && (
+                  <Link href="/dashboard" className="button-primary px-3 sm:px-[1.15rem]">
+                    Panelim <ArrowIcon className="hidden h-4 w-4 sm:block" />
+                  </Link>
+                )}
               </div>
             </div>
           </header>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BrandLogo } from "@/components/brand-logo";
+import { LogoutButton } from "@/components/logout-button";
 import { requireRole } from "@/lib/auth";
 
 const adminLinks = [
@@ -88,6 +89,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <nav className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-1" aria-label={`${roleLabels[user.role]} navigasyonu`}>
             {links.map((link) => <Link key={`${link.href}-${link.label}`} href={link.href} className="flex min-h-11 items-center rounded-[12px] border border-[var(--color-border-soft)] bg-[var(--color-surface)] px-3 py-2 text-sm font-bold text-[var(--color-primary-dark)] transition-colors duration-200 hover:bg-[var(--color-primary-soft)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-primary)]">{link.label}</Link>)}
           </nav>
+          <div className="mt-4 border-t border-[var(--color-border-soft)] pt-4">
+            <LogoutButton />
+          </div>
         </aside>
         <section className="min-w-0 flex-1 rounded-[20px] border border-[var(--color-border)] bg-white p-5 shadow-[var(--shadow-card)] sm:p-6">{children}</section>
       </div>
