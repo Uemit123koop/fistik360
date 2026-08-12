@@ -3,8 +3,9 @@
 import { useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { addToCartAction, updateCartItemAction } from "@/app/cart-actions";
+import { ConfirmModal } from "@/components/confirm-modal";
 import { AtlasImage } from "@/components/marketplace-ui";
-import type { StorefrontItem } from "@/lib/cart";
+import type { CartViewItem, StorefrontItem } from "@/lib/cart";
 
 const moneyFormatter = new Intl.NumberFormat("tr-TR", {
   style: "currency",
@@ -50,6 +51,30 @@ function ProductArtwork({ item, index }: { item: StorefrontItem; index: number }
   );
 }
 
+export function CartArtwork({
+  item,
+  index,
+  className = "h-24 w-24 rounded-[16px] sm:h-28 sm:w-28",
+}: {
+  item: CartViewItem;
+  index: number;
+  className?: string;
+}) {
+  const imageUrl = item.imageUrl && (/^https?:\/\//i.test(item.imageUrl) || item.imageUrl.startsWith("/"))
+    ? item.imageUrl
+    : null;
+  return (
+    <div
+      role="img"
+      aria-label={`${item.name} görseli`}
+      className={`shrink-0 border border-[var(--color-border-soft)] bg-[#e9dfcf] bg-cover bg-center ${className}`}
+      style={imageUrl
+        ? { backgroundImage: `url(${JSON.stringify(imageUrl)})` }
+        : { backgroundImage: `url(/assets/category-atlas.png)`, backgroundSize: "400% 200%", backgroundPosition: `${(index % 4) * 33.333}% ${Math.floor(index / 4) * 100}%` }}
+    />
+  );
+}
+
 export function StorefrontItemCard({
   item,
   index,
@@ -66,6 +91,7 @@ export function StorefrontItemCard({
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const [isError, setIsError] = useState(false);
+  const [replaceConfirm, setReplaceConfirm] = useState<string | null>(null);
 
   function add(replaceExisting = false) {
     if (!serviceAreaId) return;
@@ -84,7 +110,7 @@ export function StorefrontItemCard({
         return;
       }
       if (result.code === "CONFIRM_REPLACEMENT") {
-        if (window.confirm(result.message)) add(true);
+        setReplaceConfirm(result.message);
         return;
       }
 
@@ -126,23 +152,55 @@ export function StorefrontItemCard({
           </p>
         )}
       </div>
+      <ConfirmModal
+        open={replaceConfirm !== null}
+        title="Sepetinde bir mağaza bekliyor"
+        description={replaceConfirm ?? undefined}
+        confirmLabel="Sepeti değiştir"
+        cancelLabel="Vazgeç"
+        pending={isPending}
+        onCancel={() => setReplaceConfirm(null)}
+        onConfirm={() => {
+          setReplaceConfirm(null);
+          add(true);
+        }}
+      />
     </article>
   );
 }
 
-export function CartItemControls({ cartItemId, quantity, itemName }: { cartItemId: string; quantity: number; itemName: string }) {
+export function CartItemControls({
+  cartItemId,
+  quantity,
+  itemName,
+  onChanged,
+}: {
+  cartItemId: string;
+  quantity: number;
+  itemName: string;
+  onChanged?: () => void;
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
+  const [confirmRemove, setConfirmRemove] = useState(false);
 
-  function update(nextQuantity: number) {
-    if (nextQuantity === 0 && !window.confirm(`${itemName} sepetten çıkarılsın mı?`)) return;
+  function apply(nextQuantity: number) {
     setMessage(null);
     startTransition(async () => {
       const result = await updateCartItemAction(cartItemId, nextQuantity);
       if (!result.ok) setMessage(result.message);
       router.refresh();
+      onChanged?.();
     });
+  }
+
+  function update(nextQuantity: number) {
+    if (nextQuantity === 0) {
+      setConfirmRemove(true);
+      return;
+    }
+    apply(nextQuantity);
   }
 
   return (
@@ -177,6 +235,20 @@ export function CartItemControls({ cartItemId, quantity, itemName }: { cartItemI
         Sepetten çıkar
       </button>
       {message && <p className="mt-1 max-w-48 text-xs font-semibold text-[#8a3324]" role="alert">{message}</p>}
+      <ConfirmModal
+        open={confirmRemove}
+        title="Ürünü sepetten çıkar"
+        description={`${itemName} sepetten çıkarılacak.`}
+        confirmLabel="Çıkar"
+        cancelLabel="Vazgeç"
+        destructive
+        pending={isPending}
+        onCancel={() => setConfirmRemove(false)}
+        onConfirm={() => {
+          setConfirmRemove(false);
+          apply(0);
+        }}
+      />
     </div>
   );
 }

@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { CartItemControls } from "@/components/cart-ui";
+import { CartArtwork, CartItemControls } from "@/components/cart-ui";
 import { MapPinIcon, ShieldIcon } from "@/components/marketplace-ui";
 import { SiteShell } from "@/components/site-shell";
 import { getServerUser } from "@/lib/auth";
-import { getCustomerCart, type CartViewItem } from "@/lib/cart";
+import { getCustomerCart } from "@/lib/cart";
 
 const moneyFormatter = new Intl.NumberFormat("tr-TR", {
   style: "currency",
@@ -14,22 +14,6 @@ const moneyFormatter = new Intl.NumberFormat("tr-TR", {
 
 function money(value: number) {
   return moneyFormatter.format(value);
-}
-
-function CartArtwork({ item, index }: { item: CartViewItem; index: number }) {
-  const imageUrl = item.imageUrl && (/^https?:\/\//i.test(item.imageUrl) || item.imageUrl.startsWith("/"))
-    ? item.imageUrl
-    : null;
-  return (
-    <div
-      role="img"
-      aria-label={`${item.name} görseli`}
-      className="h-24 w-24 shrink-0 rounded-[16px] border border-[var(--color-border-soft)] bg-[#e9dfcf] bg-cover bg-center sm:h-28 sm:w-28"
-      style={imageUrl
-        ? { backgroundImage: `url(${JSON.stringify(imageUrl)})` }
-        : { backgroundImage: `url(/assets/category-atlas.png)`, backgroundSize: "400% 200%", backgroundPosition: `${(index % 4) * 33.333}% ${Math.floor(index / 4) * 100}%` }}
-    />
-  );
 }
 
 export default async function CartPage() {

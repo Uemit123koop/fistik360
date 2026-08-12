@@ -6,7 +6,15 @@ import { ArrowIcon, ShieldIcon } from "@/components/marketplace-ui";
 
 type AuthMode = "login" | "register";
 
-export function PasswordlessAuthCard({ initialError = "", allowRegister = true }: { initialError?: string; allowRegister?: boolean }) {
+export function PasswordlessAuthCard({
+  initialError = "",
+  allowRegister = true,
+  onAuthenticated,
+}: {
+  initialError?: string;
+  allowRegister?: boolean;
+  onAuthenticated?: () => void;
+}) {
   const router = useRouter();
   const [mode, setMode] = useState<AuthMode>("login");
   const [phase, setPhase] = useState<"email" | "otp">("email");
@@ -79,6 +87,7 @@ export function PasswordlessAuthCard({ initialError = "", allowRegister = true }
         setError(result.error ?? "Kod doğrulanamadı.");
         return;
       }
+      onAuthenticated?.();
       router.replace(result.redirectTo ?? "/dashboard");
       router.refresh();
     } catch {
