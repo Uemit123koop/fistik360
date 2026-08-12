@@ -2,6 +2,7 @@ import Link from "next/link";
 import { HomeBrandSection } from "@/components/home-brand-section";
 import { HomeScrollHero } from "@/components/home-scroll-hero";
 import { ArrowIcon, AtlasImage, MapPinIcon, PackageCard } from "@/components/marketplace-ui";
+import { ScrollShowcase } from "@/components/scroll-showcase";
 import { packageShowcase, productCategories } from "@/lib/marketplace-content";
 import { getServerUser } from "@/lib/auth";
 
@@ -22,13 +23,15 @@ export default async function HomePage() {
           <div><p className="eyebrow">Tazeliği seç</p><h2 id="categories-heading" className="section-title">Kuruyemiş kategorileri</h2></div>
           <Link href="/magazalar" className="text-link">Tüm mağazaları gör <ArrowIcon /></Link>
         </div>
-        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
-          {productCategories.map((category) => (
-            <Link key={category.name} href="/magazalar" className="group overflow-hidden rounded-[18px] border border-[var(--color-border)] bg-white text-center shadow-[var(--shadow-card)] transition duration-200 hover:-translate-y-0.5 hover:border-[var(--color-primary-light)] hover:shadow-[var(--shadow-card-hover)] focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-[var(--color-primary)]">
-              <AtlasImage atlas="category" column={category.column} row={category.row} alt={`${category.name} kategorisi`} className="aspect-square" sizes="(max-width: 640px) 50vw, 170px" />
-              <div className="px-2 py-3"><h3 className="text-sm font-bold text-[var(--color-ink)]">{category.name}</h3><p className="mt-0.5 hidden text-xs text-[var(--color-muted-text)] lg:block">{category.description}</p></div>
-            </Link>
-          ))}
+        <div className="mt-6">
+          <ScrollShowcase ariaLabel="Kuruyemiş kategorileri" cardClassName="w-[148px] sm:w-[172px]">
+            {productCategories.map((category) => (
+              <Link key={category.name} href="/magazalar" className="group block overflow-hidden rounded-[18px] border border-[var(--color-border)] bg-white text-center shadow-[var(--shadow-card)] transition duration-200 hover:-translate-y-0.5 hover:border-[var(--color-primary-light)] hover:shadow-[var(--shadow-card-hover)] focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-[var(--color-primary)]">
+                <AtlasImage atlas="category" column={category.column} row={category.row} alt={`${category.name} kategorisi`} className="aspect-square" sizes="(max-width: 640px) 50vw, 170px" />
+                <div className="px-2 py-3"><h3 className="text-sm font-bold text-[var(--color-ink)]">{category.name}</h3><p className="mt-0.5 hidden text-xs text-[var(--color-muted-text)] lg:block">{category.description}</p></div>
+              </Link>
+            ))}
+          </ScrollShowcase>
         </div>
       </section>
 
@@ -38,7 +41,11 @@ export default async function HomePage() {
             <div><p className="eyebrow">Hazır seçkiler</p><h2 className="section-title">Her sofraya uygun bir paket</h2><p className="section-description">Gramajı ve içeriği net, mahalle mağazalarının özenle hazırladığı paketler.</p></div>
             <Link href="/magaza/1" className="text-link">Tüm paketleri incele <ArrowIcon /></Link>
           </div>
-          <div className="mt-7 grid gap-5 md:grid-cols-3">{packageShowcase.slice(0, 3).map((item) => <PackageCard key={item.name} item={item} compact />)}</div>
+          <div className="mt-7">
+            <ScrollShowcase ariaLabel="Hazır paketler" cardClassName="w-[290px] sm:w-[340px]">
+              {packageShowcase.map((item) => <PackageCard key={item.name} item={item} compact />)}
+            </ScrollShowcase>
+          </div>
         </div>
       </section>
 
