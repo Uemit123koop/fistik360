@@ -6,7 +6,7 @@ export async function POST(request: Request) {
   const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
   const fullName = typeof body?.fullName === "string" ? body.fullName.trim().slice(0, 120) : "";
 
-  if (!/^[^s@]+@[^s@]+.[^s@]+$/.test(email) || !fullName) {
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !fullName) {
     return NextResponse.json({ error: "Ad soyad ve geçerli e-posta adresi gerekli." }, { status: 400 });
   }
 

@@ -7,7 +7,7 @@ export async function POST(request: Request) {
   const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
   const token = typeof body?.token === "string" ? body.token.trim() : "";
 
-  if (!/^[^s@]+@[^s@]+.[^s@]+$/.test(email) || !/^d{6}$/.test(token)) {
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !/^\d{6}$/.test(token)) {
     return NextResponse.json({ error: "E-posta ve 6 haneli kodu kontrol edin." }, { status: 400 });
   }
 
