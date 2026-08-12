@@ -21,15 +21,7 @@ export async function SiteShell({ children }: { children: React.ReactNode }) {
     getServerUser(),
     getCartItemCount().catch(() => 0),
   ]);
-  const canAccessWholesale = user?.role === "NUT_STORE" || user?.role === "WHOLESALE_SELLER" || user?.role === "ADMIN";
-  const desktopNavItems = [
-    ...(canAccessWholesale ? [{ href: "/toptan", label: "Toptan" }] : []),
-    ...(user ? [{ href: "/dashboard", label: "Panelim" }] : []),
-  ];
-  const mobileNavItems = [
-    ...(canAccessWholesale ? [{ href: "/toptan", label: "Toptan" }] : []),
-    { href: user ? "/dashboard" : "/magaza-ac#login", label: user ? "Panelim" : "Giriş" },
-  ];
+  const mobileNavItems = user ? [] : [{ href: "/magaza-ac#login", label: "Giriş" }];
   const cartCountLabel = cartCount > 99 ? "99+" : String(cartCount);
 
   return (
@@ -40,9 +32,6 @@ export async function SiteShell({ children }: { children: React.ReactNode }) {
           <Link href="/" className="flex min-h-12 min-w-0 items-center gap-2 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-[var(--color-primary)]" aria-label="Fıstık360 ana sayfa">
             <BrandLogo className="h-12 w-32 sm:h-14 sm:w-40" preload sizes="(max-width: 640px) 128px, 160px" />
           </Link>
-          <nav className="hidden items-center gap-4 text-sm font-bold text-[var(--color-muted-text)] lg:flex xl:gap-6" aria-label="Ana navigasyon">
-            {desktopNavItems.map((item) => <Link key={item.href} href={item.href} className="min-h-11 content-center transition-colors duration-200 hover:text-[var(--color-primary)] focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-[var(--color-primary)]">{item.label}</Link>)}
-          </nav>
           <div className="flex shrink-0 items-center gap-2">
             <HomeReturnLink />
             {(!user || user.role === "CUSTOMER") && (
@@ -52,14 +41,18 @@ export async function SiteShell({ children }: { children: React.ReactNode }) {
                 {cartCount > 0 && <span className="absolute -right-1 -top-1 flex min-h-5 min-w-5 items-center justify-center rounded-full bg-[var(--color-accent)] px-1 text-[10px] font-extrabold leading-none text-white">{cartCountLabel}</span>}
               </Link>
             )}
-            <span className="hidden shrink-0 lg:inline-flex">
-              <Link href={user ? "/dashboard" : "/magaza-ac#login"} className="button-primary px-3 sm:px-[1.15rem]">{user ? "Panelim" : "Giriş"} <ArrowIcon className="hidden h-4 w-4 lg:block" /></Link>
-            </span>
+            {!user && (
+              <span className="hidden shrink-0 lg:inline-flex">
+                <Link href="/magaza-ac#login" className="button-primary px-3 sm:px-[1.15rem]">Giriş <ArrowIcon className="hidden h-4 w-4 lg:block" /></Link>
+              </span>
+            )}
           </div>
         </div>
-        <nav className="grid grid-flow-col auto-cols-fr border-t border-[var(--color-border-soft)] px-1 lg:hidden" aria-label="Mobil navigasyon">
-          {mobileNavItems.map((item) => <Link key={item.href} href={item.href} className="min-h-12 min-w-0 flex-1 content-center text-center text-[11px] font-bold text-[var(--color-muted-text)] transition-colors hover:text-[var(--color-primary)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--color-primary)] sm:text-xs">{item.label}</Link>)}
-        </nav>
+        {mobileNavItems.length > 0 && (
+          <nav className="grid grid-flow-col auto-cols-fr border-t border-[var(--color-border-soft)] px-1 lg:hidden" aria-label="Mobil navigasyon">
+            {mobileNavItems.map((item) => <Link key={item.href} href={item.href} className="min-h-12 min-w-0 flex-1 content-center text-center text-[11px] font-bold text-[var(--color-muted-text)] transition-colors hover:text-[var(--color-primary)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--color-primary)] sm:text-xs">{item.label}</Link>)}
+          </nav>
+        )}
       </header>
 
       <main id="main-content" className="flex-1" tabIndex={-1}>{children}</main>
