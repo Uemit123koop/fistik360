@@ -2,7 +2,6 @@ import Link from "next/link";
 import { ArrowIcon, AtlasImage, MapPinIcon, PackageIcon } from "@/components/marketplace-ui";
 import { SiteShell } from "@/components/site-shell";
 import { isUuid } from "@/lib/cart";
-import { DEMO_SELLERS, getInitialDemoProducts } from "@/lib/demo-sellers";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 
 interface StoreCard {
@@ -13,10 +12,9 @@ interface StoreCard {
   neighborhood: string;
   productCount: number;
   packageCount: number;
-  isDemo?: boolean;
 }
 
-async function getStores(selectedNeighborhood?: string, selectedNeighborhoodName?: string): Promise<StoreCard[]> {
+async function getStores(selectedNeighborhood?: string): Promise<StoreCard[]> {
   const supabase = await createSupabaseServerClient();
   const { data: stores, error } = await supabase
     .from("stores")
@@ -56,31 +54,13 @@ async function getStores(selectedNeighborhood?: string, selectedNeighborhoodName
     };
   }));
 
-  const realStores = cards.filter((card): card is StoreCard => card !== null);
-  const normalizedName = selectedNeighborhoodName?.toLocaleLowerCase("tr-TR");
-  const demoStores: StoreCard[] = DEMO_SELLERS
-    .filter((seller) => !selectedNeighborhood
-      || seller.neighborhoodId === selectedNeighborhood
-      || seller.neighborhood.toLocaleLowerCase("tr-TR") === normalizedName)
-    .map((seller) => ({
-      id: seller.storeId,
-      name: seller.name,
-      description: seller.description,
-      neighborhoodId: seller.neighborhoodId,
-      neighborhood: seller.neighborhood,
-      productCount: getInitialDemoProducts(seller).filter((product) => product.active && product.inStock).length,
-      packageCount: seller.packages.filter((item) => item.active).length,
-      isDemo: true,
-    }));
-
-  return [...realStores, ...demoStores];
+  return cards.filter((card): card is StoreCard => card !== null);
 }
 
 export default async function StoresPage({ searchParams }: PageProps<"/magazalar">) {
   const query = await searchParams;
   const selectedNeighborhood = typeof query.mahalle === "string" ? query.mahalle : undefined;
-  const selectedNeighborhoodName = typeof query.mahalleAdi === "string" ? query.mahalleAdi : undefined;
-  const stores = await getStores(selectedNeighborhood, selectedNeighborhoodName);
+  const stores = await getStores(selectedNeighborhood);
 
   return (
     <SiteShell>
@@ -103,7 +83,7 @@ export default async function StoresPage({ searchParams }: PageProps<"/magazalar
                   <div className="absolute -bottom-7 left-5 flex h-14 w-14 items-center justify-center rounded-full border-4 border-white bg-[var(--color-primary)] text-sm font-bold text-white shadow-md">
                     {store.name.split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toLocaleUpperCase("tr-TR")}
                   </div>
-                  <span className="badge-success absolute right-4 top-4">{store.isDemo ? "Demo mağaza" : "Teslimat aktif"}</span>
+                  <span className="badge-success absolute right-4 top-4">Teslimat aktif</span>
                 </div>
                 <div className="px-5 pb-5 pt-10">
                   <div className="flex items-start justify-between gap-4">
