@@ -233,15 +233,21 @@ otp_length = 6
 # Number of seconds before the email OTP expires (defaults to 1 hour).
 otp_expiry = 3600
 
-# Use a production-ready SMTP server
-# [auth.email.smtp]
-# enabled = true
-# host = "smtp.sendgrid.net"
-# port = 587
-# user = "apikey"
-# pass = "env(SENDGRID_API_KEY)"
-# admin_email = "admin@email.com"
-# sender_name = "Admin"
+# Resend SMTP (production e-posta teslimatı). host/port/user Resend'in resmi SMTP
+# değerleridir; user her zaman tam olarak "resend" olmalı (Resend hesap e-postası ya
+# da API key adı DEĞİL). pass, `supabase config push` komutu çalıştırılırken kabuk
+# ortamında RESEND_SMTP_PASSWORD olarak tanımlı bir Resend API key'i olmalı.
+# admin_email, Resend → Domains altında YEŞİL TİKLİ (doğrulanmış) bir gönderen
+# adresi olmalı; doğrulanmamış bir domainden gönderim Resend'e hiç ulaşmadan
+# reddedilir ve Resend → Emails ekranında hiçbir kayıt görünmez.
+[auth.email.smtp]
+enabled = true
+host = "smtp.resend.com"
+port = 465
+user = "resend"
+pass = "env(RESEND_SMTP_PASSWORD)"
+admin_email = "posta@fistik360.com" # TODO: Resend'de doğrulanmış gerçek gönderen adresinle değiştir
+sender_name = "Fıstık360"
 
 # Uygulama signInWithOtp + verifyOtp(type:"email") ile 6 HANELİ KOD bekler.
 # Şablonlarda {{ .ConfirmationURL }} kullanılırsa Supabase kod yerine bağlantı
@@ -273,7 +279,7 @@ content_path = "./supabase/templates/otp-signup.html"
 
 [auth.sms]
 # Allow/disallow new user signups via SMS to your project.
-enable_signup = false
+enable_signup = true
 # If enabled, users need to confirm their phone number before signing in.
 enable_confirmations = false
 # Template for sending OTP to users
@@ -281,9 +287,16 @@ template = "Your code is {{ .Code }}"
 # Controls the minimum amount of time that must pass before sending another sms otp.
 max_frequency = "5s"
 
-# Use pre-defined map of phone number to OTP for testing.
-# [auth.sms.test_otp]
-# 4152127777 = "123456"
+# TEST AŞAMASI: gerçek SMS sağlayıcısı (Twilio vb.) bağlanana kadar bu 5 test
+# numarası sabit "123456" koduyla doğrulanır, hiç SMS gönderilmez. Gerçek SMS'e
+# geçerken bu bloğu kaldırıp aşağıdaki [auth.sms.twilio] bölümünü doldurun —
+# kod tarafında (signInWithOtp/verifyOtp) hiçbir değişiklik gerekmez.
+[auth.sms.test_otp]
+905000000001 = "123456"
+905000000002 = "123456"
+905000000003 = "123456"
+905000000004 = "123456"
+905000000005 = "123456"
 
 # Configure logged in session timeouts.
 # [auth.sessions]

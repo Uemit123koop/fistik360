@@ -50,7 +50,7 @@ export interface CartViewItem extends StorefrontItem {
 export interface CartView {
   id: string;
   store: { id: string; name: string; logoUrl: string | null };
-  serviceArea: { id: string; label: string };
+  serviceArea: { id: string; neighborhoodId: string; label: string };
   items: CartViewItem[];
   totals: {
     subtotal: number;
@@ -328,6 +328,7 @@ export async function getCustomerCart(customerId: string): Promise<CartView | nu
     store: { id: store.id, name: store.name, logoUrl: store.logo_url },
     serviceArea: {
       id: area.id,
+      neighborhoodId: area.neighborhood_id,
       label: neighborhood ? `${neighborhood.name} Mahallesi` : "Teslimat bölgesi",
     },
     items,

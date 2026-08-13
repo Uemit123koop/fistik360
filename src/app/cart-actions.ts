@@ -21,7 +21,6 @@ export interface CartActionResult {
 }
 
 function refreshCartViews(storeId?: string) {
-  revalidatePath("/sepet");
   if (storeId) revalidatePath(`/magaza/${storeId}`);
   revalidatePath("/", "layout");
 }

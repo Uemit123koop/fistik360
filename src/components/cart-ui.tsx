@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { usePathname, useRouter } from "next/navigation";
-import { addToCartAction, updateCartItemAction } from "@/app/cart-actions";
+import { useRouter } from "next/navigation";
+import { addToCartAction } from "@/app/cart-actions";
 import { ConfirmModal } from "@/components/confirm-modal";
 import { AtlasImage } from "@/components/marketplace-ui";
+import { addGuestCartEntry } from "@/lib/guest-cart";
 import type { CartViewItem, StorefrontItem } from "@/lib/cart";
 
 const moneyFormatter = new Intl.NumberFormat("tr-TR", {
@@ -87,7 +88,6 @@ export function StorefrontItemCard({
   serviceAreaId: string | null;
 }) {
   const router = useRouter();
-  const pathname = usePathname();
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const [isError, setIsError] = useState(false);
@@ -106,7 +106,18 @@ export function StorefrontItemCard({
       });
 
       if (result.code === "AUTH_REQUIRED") {
-        router.push(`/giris?next=${encodeURIComponent(pathname)}`);
+        // Misafir: giriş istemeden tarayıcıda tut, checkout'ta (telefon
+        // doğrulandıktan sonra) gerçek sepete aktarılır.
+        const guestResult = addGuestCartEntry(
+          { storeId, serviceAreaId, kind: item.kind, itemId: item.id, quantity: 1 },
+          { replaceExisting },
+        );
+        if (!guestResult.ok) {
+          setReplaceConfirm("Sepetinde başka bir mağazadan ürünler var. Sepeti bu mağazanın ürünleriyle değiştirmek istiyor musun?");
+          return;
+        }
+        setIsError(false);
+        setMessage(`${item.name} sepete eklendi.`);
         return;
       }
       if (result.code === "CONFIRM_REPLACEMENT") {
@@ -166,89 +177,5 @@ export function StorefrontItemCard({
         }}
       />
     </article>
-  );
-}
-
-export function CartItemControls({
-  cartItemId,
-  quantity,
-  itemName,
-  onChanged,
-}: {
-  cartItemId: string;
-  quantity: number;
-  itemName: string;
-  onChanged?: () => void;
-}) {
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
-  const [message, setMessage] = useState<string | null>(null);
-  const [confirmRemove, setConfirmRemove] = useState(false);
-
-  function apply(nextQuantity: number) {
-    setMessage(null);
-    startTransition(async () => {
-      const result = await updateCartItemAction(cartItemId, nextQuantity);
-      if (!result.ok) setMessage(result.message);
-      router.refresh();
-      onChanged?.();
-    });
-  }
-
-  function update(nextQuantity: number) {
-    if (nextQuantity === 0) {
-      setConfirmRemove(true);
-      return;
-    }
-    apply(nextQuantity);
-  }
-
-  return (
-    <div>
-      <div className="inline-grid grid-cols-[44px_48px_44px] items-center overflow-hidden rounded-full border border-[var(--color-border)] bg-[var(--color-surface)]">
-        <button
-          type="button"
-          className="flex h-11 items-center justify-center text-[var(--color-primary-dark)] transition hover:bg-[var(--color-primary-soft)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--color-primary)] disabled:opacity-50"
-          aria-label={`${itemName} adedini azalt`}
-          disabled={isPending}
-          onClick={() => update(quantity - 1)}
-        >
-          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="h-4 w-4"><path d="M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
-        </button>
-        <span className="text-center text-sm font-extrabold tabular-nums" aria-label={`${quantity} adet`}>{quantity}</span>
-        <button
-          type="button"
-          className="flex h-11 items-center justify-center text-[var(--color-primary-dark)] transition hover:bg-[var(--color-primary-soft)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--color-primary)] disabled:opacity-50"
-          aria-label={`${itemName} adedini artır`}
-          disabled={isPending || quantity >= 99}
-          onClick={() => update(quantity + 1)}
-        >
-          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="h-4 w-4"><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
-        </button>
-      </div>
-      <button
-        type="button"
-        className="mt-1 block min-h-10 text-xs font-bold text-[#8a3324] underline-offset-4 hover:underline disabled:opacity-50"
-        disabled={isPending}
-        onClick={() => update(0)}
-      >
-        Sepetten çıkar
-      </button>
-      {message && <p className="mt-1 max-w-48 text-xs font-semibold text-[#8a3324]" role="alert">{message}</p>}
-      <ConfirmModal
-        open={confirmRemove}
-        title="Ürünü sepetten çıkar"
-        description={`${itemName} sepetten çıkarılacak.`}
-        confirmLabel="Çıkar"
-        cancelLabel="Vazgeç"
-        destructive
-        pending={isPending}
-        onCancel={() => setConfirmRemove(false)}
-        onConfirm={() => {
-          setConfirmRemove(false);
-          apply(0);
-        }}
-      />
-    </div>
   );
 }

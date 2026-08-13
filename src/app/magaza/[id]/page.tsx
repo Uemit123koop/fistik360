@@ -2,11 +2,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { StorefrontItemCard } from "@/components/cart-ui";
-import { DemoStorefront } from "@/components/demo-storefront";
 import { MapPinIcon, ShieldIcon } from "@/components/marketplace-ui";
 import { SiteShell } from "@/components/site-shell";
 import { getPublicStorefront } from "@/lib/cart";
-import { getDemoSeller } from "@/lib/demo-sellers";
 
 function safeMediaUrl(value: string | null) {
   if (!value) return null;
@@ -23,10 +21,6 @@ export default async function StoreDetailPage({ params, searchParams }: PageProp
   const { id } = await params;
   const query = await searchParams;
   const selectedNeighborhood = typeof query.mahalle === "string" ? query.mahalle : undefined;
-  const demoSeller = getDemoSeller(id);
-  if (demoSeller) {
-    return <SiteShell><DemoStorefront seller={demoSeller} /></SiteShell>;
-  }
   const store = await getPublicStorefront(id, selectedNeighborhood);
   if (!store) notFound();
 
