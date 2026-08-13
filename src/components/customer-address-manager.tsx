@@ -66,7 +66,7 @@ export function CustomerAddressManager({ initialAddresses }: { initialAddresses:
     setError(null);
     try {
       const result = await addAddressAction({
-        neighborhoodId: location.settlementId,
+        location,
         street: trimmedStreet,
         buildingNo: trimmedBuildingNo,
         apartmentNo: apartmentNo.trim() || undefined,

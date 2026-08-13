@@ -2,7 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { getServerUser } from "@/lib/auth";
+import type { LocationSelection } from "@/lib/location-types";
+import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { upsertNeighborhoodRecord } from "@/lib/turkiye-locations";
 
 export interface AddressActionResult {
   ok: boolean;
@@ -10,7 +13,7 @@ export interface AddressActionResult {
 }
 
 export interface NewAddressInput {
-  neighborhoodId: string;
+  location: LocationSelection;
   street: string;
   buildingNo: string;
   apartmentNo?: string;
@@ -29,8 +32,20 @@ export async function addAddressAction(input: NewAddressInput): Promise<AddressA
   }
   const street = input.street.trim();
   const buildingNo = input.buildingNo.trim();
-  if (!isUuid(input.neighborhoodId) || !street || !buildingNo) {
+  if (!street || !buildingNo) {
     return { ok: false, message: "Sokak ve bina no zorunludur." };
+  }
+
+  // TurkeyLocationFields, turkiyeapi.dev'in sayısal id'leriyle çalışır — bu yüzden
+  // müşterinin seçtiği il/ilçe/mahalle'yi Supabase'deki gerçek neighborhoods.id'ye
+  // (upsertNeighborhoodRecord ile) çevirmeden customer_addresses'e yazamayız.
+  const admin = createSupabaseAdminClient();
+  let neighborhoodId: string;
+  try {
+    const resolved = await upsertNeighborhoodRecord(admin, input.location);
+    neighborhoodId = resolved.id;
+  } catch {
+    return { ok: false, message: "Seçilen mahalle doğrulanamadı." };
   }
 
   const supabase = await createSupabaseServerClient();
@@ -39,7 +54,7 @@ export async function addAddressAction(input: NewAddressInput): Promise<AddressA
     await supabase.from("customer_addresses").update({ is_default: false }).eq("customer_id", user.id).eq("is_default", true);
   }
 
-  const { data: existingCount } = await supabase
+  const { count: existingCount } = await supabase
     .from("customer_addresses")
     .select("id", { count: "exact", head: true })
     .eq("customer_id", user.id);
@@ -47,7 +62,7 @@ export async function addAddressAction(input: NewAddressInput): Promise<AddressA
 
   const { error } = await supabase.from("customer_addresses").insert({
     customer_id: user.id,
-    neighborhood_id: input.neighborhoodId,
+    neighborhood_id: neighborhoodId,
     street,
     building_no: buildingNo,
     apartment_no: input.apartmentNo?.trim() || null,

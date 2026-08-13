@@ -50,7 +50,14 @@ export interface CartViewItem extends StorefrontItem {
 export interface CartView {
   id: string;
   store: { id: string; name: string; logoUrl: string | null };
-  serviceArea: { id: string; neighborhoodId: string; label: string };
+  serviceArea: {
+    id: string;
+    neighborhoodId: string;
+    label: string;
+    neighborhoodName: string;
+    districtName: string;
+    provinceName: string;
+  };
   items: CartViewItem[];
   totals: {
     subtotal: number;
@@ -244,13 +251,20 @@ export async function getCustomerCart(customerId: string): Promise<CartView | nu
     packageIds.length
       ? admin.from("packages").select("id, name, package_type, price, image_url").in("id", packageIds)
       : Promise.resolve({ data: [] }),
-    admin.from("neighborhoods").select("name, settlement_type").eq("id", area.neighborhood_id).single(),
+    admin.from("neighborhoods").select("id, name, settlement_type, district_id").eq("id", area.neighborhood_id).single(),
     admin
       .from("store_delivery_settings")
       .select("minimum_order_amount, standard_delivery_fee, free_delivery_threshold")
       .eq("store_id", cart.store_id)
       .single(),
   ]);
+
+  const { data: district } = neighborhood
+    ? await admin.from("districts").select("name, province_id").eq("id", neighborhood.district_id).maybeSingle()
+    : { data: null };
+  const { data: province } = district
+    ? await admin.from("provinces").select("name").eq("id", district.province_id).maybeSingle()
+    : { data: null };
 
   const productMap = new Map((products ?? []).map((item) => [item.id, item]));
   const packageMap = new Map((packages ?? []).map((item) => [item.id, item]));
@@ -330,6 +344,9 @@ export async function getCustomerCart(customerId: string): Promise<CartView | nu
       id: area.id,
       neighborhoodId: area.neighborhood_id,
       label: neighborhood ? `${neighborhood.name} Mahallesi` : "Teslimat bölgesi",
+      neighborhoodName: neighborhood?.name ?? "",
+      districtName: district?.name ?? "",
+      provinceName: province?.name ?? "",
     },
     items,
     totals: {

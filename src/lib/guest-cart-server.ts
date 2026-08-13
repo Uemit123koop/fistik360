@@ -31,6 +31,14 @@ export async function resolveGuestCart(entries: GuestCartEntry[]): Promise<CartV
 
   if (!store || !area) return null;
 
+  const { data: neighborhoodRow } = await admin.from("neighborhoods").select("district_id").eq("id", area.neighborhood_id).maybeSingle();
+  const { data: district } = neighborhoodRow
+    ? await admin.from("districts").select("name, province_id").eq("id", neighborhoodRow.district_id).maybeSingle()
+    : { data: null };
+  const { data: province } = district
+    ? await admin.from("provinces").select("name").eq("id", district.province_id).maybeSingle()
+    : { data: null };
+
   const items: CartViewItem[] = [];
   for (const entry of entries) {
     if (entry.kind === "PRODUCT") {
@@ -79,7 +87,14 @@ export async function resolveGuestCart(entries: GuestCartEntry[]): Promise<CartV
   return {
     id: "guest",
     store: { id: store.id, name: store.name, logoUrl: store.logo_url },
-    serviceArea: { id: area.id, neighborhoodId: area.neighborhood_id, label: area.neighborhood },
+    serviceArea: {
+      id: area.id,
+      neighborhoodId: area.neighborhood_id,
+      label: `${area.neighborhood} Mahallesi`,
+      neighborhoodName: area.neighborhood,
+      districtName: district?.name ?? "",
+      provinceName: province?.name ?? "",
+    },
     items,
     totals: {
       subtotal,

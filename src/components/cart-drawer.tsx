@@ -15,8 +15,10 @@ import { addAddressAction, deleteAddressAction, setDefaultAddressAction } from "
 import { addToCartAction, updateCartItemAction } from "@/app/cart-actions";
 import { CartArtwork, CartIcon, formatMoney } from "@/components/cart-ui";
 import { ArrowIcon, MapPinIcon, ShieldIcon } from "@/components/marketplace-ui";
+import { TurkeyLocationFields } from "@/components/turkey-location-fields";
 import type { CartView, CartViewItem } from "@/lib/cart";
 import { clearGuestCart, guestCartCount, readGuestCart, updateGuestCartEntryQuantity, type GuestCartEntry } from "@/lib/guest-cart";
+import type { LocationSelection } from "@/lib/location-types";
 import { PAYMENT_METHOD_LABELS, type PaymentMethod } from "@/lib/orders";
 import { formatTurkishPhoneDisplay, normalizeTurkishPhone } from "@/lib/phone";
 
@@ -531,6 +533,8 @@ function DeliveryTabContent({
   const [sentPhone, setSentPhone] = useState<string | null>(null);
 
   const [showAddForm, setShowAddForm] = useState(false);
+  const [newLocation, setNewLocation] = useState<LocationSelection | null>(null);
+  const [locationResolving, setLocationResolving] = useState(false);
   const [newStreet, setNewStreet] = useState("");
   const [newBuildingNo, setNewBuildingNo] = useState("");
   const [newApartmentNo, setNewApartmentNo] = useState("");
@@ -542,6 +546,53 @@ function DeliveryTabContent({
   useEffect(() => {
     if (!data.isGuest && addresses === null) loadAddresses();
   }, [data.isGuest, addresses, loadAddresses]);
+
+  // TurkeyLocationFields, Supabase'in kendi id'leri yerine turkiyeapi.dev'in sayısal
+  // id'lerini kullanır (bkz. /api/locations) — bu yüzden sepetin servis mahallesini
+  // seed etmek için Supabase id'lerini değil, il/ilçe/mahalle adlarını aynı API'de
+  // arayıp karşılık gelen sayısal id'leri buluyoruz.
+  async function resolveLocationFromNames(provinceName: string, districtName: string, neighborhoodName: string): Promise<LocationSelection | null> {
+    const sameName = (a: string, b: string) => a.localeCompare(b, "tr", { sensitivity: "base" }) === 0;
+    try {
+      const provinceRes = await fetch(`/api/locations?level=provinces`);
+      const provinceJson = (await provinceRes.json()) as { items?: { id: string; name: string }[] };
+      const province = provinceJson.items?.find((item) => sameName(item.name, provinceName));
+      if (!province) return null;
+
+      const districtRes = await fetch(`/api/locations?level=districts&parentId=${province.id}`);
+      const districtJson = (await districtRes.json()) as { items?: { id: string; name: string }[] };
+      const district = districtJson.items?.find((item) => sameName(item.name, districtName));
+      if (!district) return null;
+
+      const settlementRes = await fetch(`/api/locations?level=settlements&parentId=${district.id}`);
+      const settlementJson = (await settlementRes.json()) as { items?: { id: string; name: string; type?: "NEIGHBORHOOD" }[] };
+      const settlement = settlementJson.items?.find((item) => sameName(item.name, neighborhoodName));
+      if (!settlement || !settlement.type) return null;
+
+      return {
+        provinceId: province.id,
+        provinceName: province.name,
+        districtId: district.id,
+        districtName: district.name,
+        settlementId: settlement.id,
+        settlementName: settlement.name,
+        settlementType: settlement.type,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  async function openAddForm() {
+    setShowAddForm(true);
+    setNewLocation(null);
+    const area = data.cart?.serviceArea;
+    if (!area?.provinceName || !area?.districtName || !area?.neighborhoodName) return;
+    setLocationResolving(true);
+    const resolved = await resolveLocationFromNames(area.provinceName, area.districtName, area.neighborhoodName);
+    setNewLocation(resolved);
+    setLocationResolving(false);
+  }
 
   async function sendCode() {
     setOtpError(null);
@@ -617,6 +668,10 @@ function DeliveryTabContent({
   async function saveNewAddress() {
     if (!data.cart) return;
     setAddressError(null);
+    if (!newLocation) {
+      setAddressError("Mahalle seç.");
+      return;
+    }
     const street = newStreet.trim();
     const buildingNo = newBuildingNo.trim();
     if (!street || !buildingNo) {
@@ -626,7 +681,7 @@ function DeliveryTabContent({
     setAddressBusy(true);
     try {
       const result = await addAddressAction({
-        neighborhoodId: data.cart.serviceArea.neighborhoodId,
+        location: newLocation,
         street,
         buildingNo,
         apartmentNo: newApartmentNo.trim() || undefined,
@@ -638,6 +693,7 @@ function DeliveryTabContent({
         return;
       }
       setShowAddForm(false);
+      setNewLocation(null);
       setNewStreet("");
       setNewBuildingNo("");
       setNewApartmentNo("");
@@ -779,7 +835,11 @@ function DeliveryTabContent({
 
             {showAddForm ? (
               <div className="mt-3 space-y-3 rounded-[14px] border border-dashed border-[var(--color-border)] p-3">
-                <p className="text-xs font-semibold text-[var(--color-muted-text)]">Teslimat mahallesi: {data.cart?.serviceArea.label}</p>
+                {locationResolving ? (
+                  <p className="text-xs text-[var(--color-muted-text)]">Konum bilgisi hazırlanıyor...</p>
+                ) : (
+                  <TurkeyLocationFields value={newLocation} onChange={setNewLocation} compact />
+                )}
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className="form-field">
                     Sokak
@@ -807,13 +867,13 @@ function DeliveryTabContent({
                   <button type="button" className="button-primary flex-1" disabled={addressBusy} onClick={saveNewAddress}>
                     {addressBusy ? "Kaydediliyor..." : "Adresi kaydet"}
                   </button>
-                  <button type="button" className="button-secondary" disabled={addressBusy} onClick={() => setShowAddForm(false)}>
+                  <button type="button" className="button-secondary" disabled={addressBusy} onClick={() => { setShowAddForm(false); setNewLocation(null); }}>
                     Vazgeç
                   </button>
                 </div>
               </div>
             ) : (
-              <button type="button" className="button-secondary mt-3 w-full" onClick={() => setShowAddForm(true)}>
+              <button type="button" className="button-secondary mt-3 w-full" onClick={openAddForm}>
                 + Yeni adres ekle
               </button>
             )}
