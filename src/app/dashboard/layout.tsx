@@ -40,6 +40,7 @@ const storeLinks = [
 const customerLinks = [
   { href: "/dashboard/customer", label: "Profil" },
   { href: "/dashboard/customer/orders", label: "Siparişlerim" },
+  { href: "/dashboard/customer/addresses", label: "Adreslerim" },
   { href: "/dashboard/customer/neighborhood", label: "Mahalle seçimi" },
 ];
 

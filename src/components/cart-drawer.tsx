@@ -714,7 +714,7 @@ function DeliveryTabContent({
       ) : (
         <div className="space-y-5">
           <div className="rounded-[12px] bg-[var(--color-primary-soft)] p-3 text-xs font-semibold text-[var(--color-primary-dark)]" role="status">
-            Telefonun doğrulandı, {data.cart?.serviceArea.label ?? "mahallen"} zaten biliniyor.
+            Hoş geldin{name ? ` ${name}` : ""}! Numaran doğrulandı, {data.cart?.serviceArea.label ?? "mahallen"} zaten biliniyor.
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
@@ -729,7 +729,9 @@ function DeliveryTabContent({
           </div>
 
           <div>
-            <p className="mb-2 text-sm font-extrabold text-[var(--color-ink)]">Adres defterin</p>
+            <p className="mb-2 text-sm font-extrabold text-[var(--color-ink)]">
+              Adres defterin{addresses && addresses.length > 0 ? ` · ${addresses.length} adres` : ""}
+            </p>
             {addressesLoading && addresses === null && <p className="text-xs text-[var(--color-muted-text)]">Adresler yükleniyor...</p>}
             {addresses !== null && addresses.length === 0 && !showAddForm && (
               <p className="text-xs text-[var(--color-muted-text)]">Henüz kayıtlı adresin yok, aşağıdan ekleyebilirsin.</p>
@@ -788,7 +790,7 @@ function DeliveryTabContent({
                     <input className="form-control" value={newBuildingNo} onChange={(e) => setNewBuildingNo(e.target.value)} maxLength={20} />
                   </label>
                   <label className="form-field">
-                    Daire no <span className="font-normal opacity-60">(isteğe bağlı)</span>
+                    Ek adres <span className="font-normal opacity-60">(isteğe bağlı — Daire no, kat vb.)</span>
                     <input className="form-control" value={newApartmentNo} onChange={(e) => setNewApartmentNo(e.target.value)} maxLength={20} />
                   </label>
                   <label className="form-field">
