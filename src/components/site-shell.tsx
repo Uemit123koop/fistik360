@@ -1,12 +1,39 @@
 import Link from "next/link";
-import { AuthModalProvider, AuthTriggerButton } from "@/components/auth-modal";
+import { AuthModalProvider } from "@/components/auth-modal";
 import { BrandLogo } from "@/components/brand-logo";
 import { CartDrawerProvider, CartTriggerButton } from "@/components/cart-drawer";
 import { HomeReturnLink } from "@/components/home-return-link";
-import { ArrowIcon } from "@/components/marketplace-ui";
+import { ArrowIcon, ShieldIcon } from "@/components/marketplace-ui";
+import { SellerEntryDrawerProvider, SellerEntryTriggerButton } from "@/components/seller-entry-drawer";
 import { getCartItemCount } from "@/lib/cart";
 import { getServerUser } from "@/lib/auth";
 import { corporateLinks, legalEntity, legalLinks } from "@/lib/legal-content";
+
+function LockIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className={className}>
+      <rect x="5" y="10.5" width="14" height="9.5" rx="2" stroke="currentColor" strokeWidth="1.7" />
+      <path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// Ödeme sağlayıcı/kart şeması rozetleri — resmi marka görselleri yerine kartların
+// yaygın bilinen renk/biçimiyle sade, metin tabanlı temsiller (iyzico entegrasyonu
+// gerçek; Mastercard/VISA/TROY kartlar iyzico üzerinden kabul edilir).
+function PaymentBadges() {
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-2.5">
+      <span className="rounded-[8px] bg-white px-3 py-1.5 text-sm font-black italic tracking-tight text-[#1a2b6d]">iyzico</span>
+      <span className="flex items-center gap-1 rounded-[8px] bg-white px-2.5 py-1.5" aria-label="Mastercard">
+        <span className="h-4 w-4 rounded-full bg-[#eb001b] opacity-90" />
+        <span className="-ml-2 h-4 w-4 rounded-full bg-[#f79e1b] opacity-90" />
+      </span>
+      <span className="rounded-[8px] bg-white px-3 py-1.5 text-sm font-black italic tracking-tight text-[#1a1f71]">VISA</span>
+      <span className="rounded-[8px] bg-white px-3 py-1.5 text-sm font-black tracking-tight text-[#0aa06e]">troy</span>
+    </div>
+  );
+}
 
 export async function SiteShell({ children }: { children: React.ReactNode }) {
   const [user, cartCount] = await Promise.all([
@@ -17,13 +44,18 @@ export async function SiteShell({ children }: { children: React.ReactNode }) {
   return (
     <AuthModalProvider>
       <CartDrawerProvider>
-        <div className="flex min-h-screen flex-col bg-[var(--color-background)] text-[var(--color-ink)]">
+        <SellerEntryDrawerProvider>
+          <div className="flex min-h-screen flex-col bg-[var(--color-background)] text-[var(--color-ink)]">
           <a href="#main-content" className="skip-link">İçeriğe geç</a>
           <header className="safe-header sticky top-0 z-40 border-b border-[var(--color-border-soft)] bg-[var(--color-surface)]/98">
             <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-2 sm:gap-5 sm:px-6 lg:px-8">
               <Link href="/" className="flex min-h-12 min-w-0 items-center gap-2 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-[var(--color-primary)]" aria-label="Fıstık360 ana sayfa">
                 <BrandLogo className="h-12 w-32 sm:h-14 sm:w-40" preload sizes="(max-width: 640px) 128px, 160px" />
               </Link>
+              <nav aria-label="Ana menü" className="flex items-center gap-3 sm:gap-6">
+                <Link href="/sayfalar/hakkimizda" className="flex min-h-11 items-center whitespace-nowrap text-xs font-bold text-[var(--color-ink)] transition-colors hover:text-[var(--color-primary-dark)] focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-[var(--color-primary)] sm:text-sm">Hakkımızda</Link>
+                <Link href="/fiyatlandirma" className="flex min-h-11 items-center whitespace-nowrap text-xs font-bold text-[var(--color-ink)] transition-colors hover:text-[var(--color-primary-dark)] focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-[var(--color-primary)] sm:text-sm">Fiyatlar</Link>
+              </nav>
               <div className="flex shrink-0 items-center gap-2">
                 <HomeReturnLink />
                 {(!user || user.role === "CUSTOMER") && (
@@ -33,9 +65,9 @@ export async function SiteShell({ children }: { children: React.ReactNode }) {
                   />
                 )}
                 {!user && (
-                  <AuthTriggerButton className="button-primary px-3 sm:px-[1.15rem]">
+                  <SellerEntryTriggerButton className="button-primary px-3 sm:px-[1.15rem]">
                     Giriş yap <ArrowIcon className="hidden h-4 w-4 sm:block" />
-                  </AuthTriggerButton>
+                  </SellerEntryTriggerButton>
                 )}
                 {user && (
                   <Link href="/dashboard" className="button-primary px-3 sm:px-[1.15rem]">
@@ -78,6 +110,21 @@ export async function SiteShell({ children }: { children: React.ReactNode }) {
                 </ul>
               </div>
             </div>
+            <div className="border-t border-white/10 px-4 py-6 sm:px-6 lg:px-8">
+              <div className="mx-auto flex max-w-7xl flex-col items-center gap-4">
+                <div className="flex flex-wrap items-center justify-center gap-3">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#cfc6b7]">
+                    <LockIcon /> Güvenli ödeme
+                  </span>
+                  <PaymentBadges />
+                  <span className="text-xs font-semibold text-[#cfc6b7]">256-bit SSL</span>
+                </div>
+                <div className="inline-flex items-center gap-2 rounded-full border border-[#2d5540] bg-[#173328] px-4 py-2 text-xs font-bold text-[#d7ec9c]">
+                  <ShieldIcon className="h-4 w-4" /> SSL Sertifikalı · 256-bit güvenli bağlantı
+                </div>
+              </div>
+            </div>
+
             <div className="border-t border-white/10">
               <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-4 text-xs leading-5 text-[#a99f91] sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
                 <span>© 2026 Fıstık360 · Kuruyemiş ticaretinin dijital pazarı.</span>
@@ -86,6 +133,7 @@ export async function SiteShell({ children }: { children: React.ReactNode }) {
             </div>
           </footer>
         </div>
+        </SellerEntryDrawerProvider>
       </CartDrawerProvider>
     </AuthModalProvider>
   );
