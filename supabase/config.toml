@@ -287,16 +287,25 @@ template = "Your code is {{ .Code }}"
 # Controls the minimum amount of time that must pass before sending another sms otp.
 max_frequency = "5s"
 
-# TEST AŞAMASI: gerçek SMS sağlayıcısı (Twilio vb.) bağlanana kadar bu 5 test
-# numarası sabit "123456" koduyla doğrulanır, hiç SMS gönderilmez. Gerçek SMS'e
-# geçerken bu bloğu kaldırıp aşağıdaki [auth.sms.twilio] bölümünü doldurun —
-# kod tarafında (signInWithOtp/verifyOtp) hiçbir değişiklik gerekmez.
+# TEST/QA: bu 5 test numarası sabit "123456" koduyla doğrulanır, hiç SMS gönderilmez,
+# aşağıdaki send_sms hook'una hiç uğramaz. Diğer tüm gerçek numaralar send_sms hook'u
+# üzerinden NetGSM ile gerçek SMS alır.
 [auth.sms.test_otp]
 905000000001 = "123456"
 905000000002 = "123456"
 905000000003 = "123456"
 905000000004 = "123456"
 905000000005 = "123456"
+
+# NetGSM, Supabase'in yerleşik SMS sağlayıcı listesinde (twilio/messagebird/vonage/
+# textlocal) olmadığı için özel HTTP hook ile gönderiliyor. Supabase, gönderileceği OTP'yi
+# kendi SMS'i yerine bu uca POST eder ({"user":{"phone":...},"sms":{"otp":...}}), uç
+# NetGSM'i çağırıp 200 döner. secrets, src/app/api/auth/sms-hook/route.ts'teki imza
+# doğrulamasıyla BİREBİR aynı değer olmalı (SEND_SMS_HOOK_SECRET ortam değişkeni).
+[auth.hook.send_sms]
+enabled = true
+uri = "https://fistik360.com/api/auth/sms-hook"
+secrets = "env(SEND_SMS_HOOK_SECRET)"
 
 # Configure logged in session timeouts.
 # [auth.sessions]
