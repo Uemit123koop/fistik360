@@ -1,18 +1,25 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useMemo, useRef, useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { PasswordlessAuthCard } from "@/components/passwordless-auth-card";
 
+interface OpenModalOptions {
+  onAuthenticated?: () => void;
+  initialError?: string;
+}
+
 interface AuthModalContextValue {
   isOpen: boolean;
-  openModal: () => void;
+  initialError: string;
+  openModal: (options?: OpenModalOptions) => void;
   closeModal: () => void;
+  notifyAuthenticated: () => void;
 }
 
 const AuthModalContext = createContext<AuthModalContextValue | null>(null);
 
-function useAuthModal() {
+export function useAuthModal() {
   const ctx = useContext(AuthModalContext);
   if (!ctx) throw new Error("useAuthModal, AuthModalProvider içinde kullanılmalı.");
   return ctx;
@@ -20,22 +27,61 @@ function useAuthModal() {
 
 export function AuthModalProvider({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
-  const openModal = useCallback(() => setIsOpen(true), []);
+  const [initialError, setInitialError] = useState("");
+  const successCallbackRef = useRef<(() => void) | null>(null);
+
+  const openModal = useCallback((options?: OpenModalOptions) => {
+    successCallbackRef.current = options?.onAuthenticated ?? null;
+    setInitialError(options?.initialError ?? "");
+    setIsOpen(true);
+  }, []);
   const closeModal = useCallback(() => setIsOpen(false), []);
-  const value = useMemo(() => ({ isOpen, openModal, closeModal }), [isOpen, openModal, closeModal]);
+  const notifyAuthenticated = useCallback(() => {
+    setIsOpen(false);
+    successCallbackRef.current?.();
+    successCallbackRef.current = null;
+  }, []);
+
+  const value = useMemo(
+    () => ({ isOpen, initialError, openModal, closeModal, notifyAuthenticated }),
+    [isOpen, initialError, openModal, closeModal, notifyAuthenticated],
+  );
 
   return (
     <AuthModalContext.Provider value={value}>
       {children}
+      <AuthModalUrlTrigger />
       <AuthModalPanel />
     </AuthModalContext.Provider>
   );
 }
 
+// /giris gibi sunucu taraflı yönlendirmeler, herhangi bir genel sayfaya
+// ?auth=login(&error=...) ile düşer; bu bileşen o parametreyi görünce modalı
+// açar ve URL'i temizler (SellerEntryHashFocus'taki hash-okuma deseniyle aynı
+// mantık: useSearchParams yerine window.location, Suspense gereksinimini bypass eder).
+function AuthModalUrlTrigger() {
+  const { openModal } = useAuthModal();
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("auth") !== "login") return;
+    const error = params.get("error");
+    openModal({ initialError: error === "confirmation" ? "E-posta doğrulama bağlantısı geçersiz veya süresi dolmuş." : undefined });
+    params.delete("auth");
+    params.delete("error");
+    const query = params.toString();
+    window.history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return null;
+}
+
 export function AuthTriggerButton({ className, children }: { className?: string; children: React.ReactNode }) {
   const { openModal } = useAuthModal();
   return (
-    <button type="button" onClick={openModal} className={className} aria-haspopup="dialog">
+    <button type="button" onClick={() => openModal()} className={className} aria-haspopup="dialog">
       {children}
     </button>
   );
@@ -50,7 +96,7 @@ function CloseIcon({ className = "h-5 w-5" }: { className?: string }) {
 }
 
 function AuthModalPanel() {
-  const { isOpen, closeModal } = useAuthModal();
+  const { isOpen, initialError, closeModal, notifyAuthenticated } = useAuthModal();
 
   useEffect(() => {
     if (!isOpen) return;
@@ -69,13 +115,13 @@ function AuthModalPanel() {
   if (!isOpen) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Giriş yap veya kayıt ol">
+    <div className="fixed inset-0 z-[70] flex items-stretch justify-center sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label="Giriş yap veya kayıt ol">
       <div className="absolute inset-0 bg-[var(--color-ink)]/45 backdrop-blur-sm animate-overlay-in" onClick={closeModal} aria-hidden="true" />
-      <div className="relative w-full max-w-md rounded-[22px] border border-[var(--color-border)] bg-white p-6 shadow-[var(--shadow-soft)] animate-modal-in sm:p-8">
-        <div className="flex items-start justify-between gap-3">
+      <div className="relative flex w-full max-w-none flex-col overflow-y-auto bg-white p-6 shadow-[var(--shadow-soft)] animate-modal-in sm:max-w-lg sm:rounded-[26px] sm:border sm:border-[var(--color-border)] sm:p-10">
+        <div className="flex items-start justify-between gap-3 pt-[max(0.5rem,env(safe-area-inset-top))] sm:pt-0">
           <div>
             <p className="eyebrow">Fıstık360</p>
-            <h2 className="mt-1 font-serif text-2xl font-bold text-[var(--color-ink)]">Giriş yap veya kayıt ol</h2>
+            <h2 className="mt-1 font-serif text-3xl font-bold text-[var(--color-ink)] sm:text-2xl">Giriş yap veya kayıt ol</h2>
           </div>
           <button
             type="button"
@@ -86,8 +132,8 @@ function AuthModalPanel() {
             <CloseIcon />
           </button>
         </div>
-        <div className="mt-6">
-          <PasswordlessAuthCard onAuthenticated={closeModal} />
+        <div className="mx-auto mt-8 w-full max-w-sm flex-1 sm:mt-6 sm:flex-none">
+          <PasswordlessAuthCard initialError={initialError} onAuthenticated={notifyAuthenticated} />
         </div>
       </div>
     </div>,

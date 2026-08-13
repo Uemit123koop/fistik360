@@ -6,6 +6,6 @@ interface LoginPageProps {
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const { error } = await searchParams;
-  const query = error ? `?error=${encodeURIComponent(error)}` : "";
-  redirect(`/magaza-ac${query}#login`);
+  const query = error ? `&error=${encodeURIComponent(error)}` : "";
+  redirect(`/?auth=login${query}`);
 }
