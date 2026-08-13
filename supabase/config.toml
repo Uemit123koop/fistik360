@@ -246,7 +246,7 @@ host = "smtp.resend.com"
 port = 465
 user = "resend"
 pass = "env(RESEND_SMTP_PASSWORD)"
-admin_email = "posta@fistik360.com" # TODO: Resend'de doğrulanmış gerçek gönderen adresinle değiştir
+admin_email = "destek@mahalle360.com" # fistik360.com'da doğrulanmış gönderen adresi/domain yok; paylaşılan Resend workspace'inde doğrulanmış mahalle360.com üzerinden gönderilir
 sender_name = "Fıstık360"
 
 # Uygulama signInWithOtp + verifyOtp(type:"email") ile 6 HANELİ KOD bekler.
