@@ -75,21 +75,14 @@ export async function validateLocationSelection(value: LocationSelection): Promi
   };
 }
 
-export async function saveSellerPrimaryLocation(
+// İl/ilçe/mahalle kayıtlarını upsert edip nihai `neighborhoods.id`'yi döner. Hem
+// ücretsiz ilk mahalle (saveSellerPrimaryLocation) hem ücretli ek mahalle
+// (neighborhood-billing.ts'teki activatePaidServiceArea) bu upsert'i paylaşır.
+export async function upsertNeighborhoodRecord(
   admin: SupabaseClient,
-  userId: string,
   rawSelection: LocationSelection,
-) {
+): Promise<{ id: string; selection: LocationSelection }> {
   const selection = await validateLocationSelection(rawSelection);
-
-  const { data: store, error: storeError } = await admin
-    .from("stores")
-    .select("id")
-    .eq("owner_id", userId)
-    .order("created_at")
-    .limit(1)
-    .maybeSingle();
-  if (storeError || !store) throw new Error("Mağaza kaydı bulunamadı.");
 
   const { data: province, error: provinceError } = await admin
     .from("provinces")
@@ -123,13 +116,32 @@ export async function saveSellerPrimaryLocation(
     .single();
   if (neighborhoodError || !neighborhood) throw new Error("Mahalle kaydı oluşturulamadı.");
 
+  return { id: neighborhood.id, selection };
+}
+
+export async function saveSellerPrimaryLocation(
+  admin: SupabaseClient,
+  userId: string,
+  rawSelection: LocationSelection,
+) {
+  const { data: store, error: storeError } = await admin
+    .from("stores")
+    .select("id")
+    .eq("owner_id", userId)
+    .order("created_at")
+    .limit(1)
+    .maybeSingle();
+  if (storeError || !store) throw new Error("Mağaza kaydı bulunamadı.");
+
+  const { id: neighborhoodId, selection } = await upsertNeighborhoodRecord(admin, rawSelection);
+
   const { data: existingAreas, error: areasError } = await admin
     .from("store_neighborhoods")
     .select("id, neighborhood_id, is_primary")
     .eq("store_id", store.id);
   if (areasError) throw new Error("Hizmet alanı okunamadı.");
 
-  const existingTarget = existingAreas?.find((area) => area.neighborhood_id === neighborhood.id);
+  const existingTarget = existingAreas?.find((area) => area.neighborhood_id === neighborhoodId);
   const currentPrimary = existingAreas?.find((area) => area.is_primary);
 
   if (currentPrimary && currentPrimary.id !== existingTarget?.id) {
@@ -142,7 +154,7 @@ export async function saveSellerPrimaryLocation(
 
   const areaPayload = {
     store_id: store.id,
-    neighborhood_id: neighborhood.id,
+    neighborhood_id: neighborhoodId,
     province: selection.provinceName,
     district: selection.districtName,
     neighborhood: selection.settlementName,
@@ -187,5 +199,5 @@ export async function saveSellerPrimaryLocation(
     }
   }
 
-  return selection;
+  return { selection, storeId: store.id };
 }

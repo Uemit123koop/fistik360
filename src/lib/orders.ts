@@ -60,6 +60,20 @@ export function isPaymentMethod(value: unknown): value is PaymentMethod {
   return typeof value === "string" && (PAYMENT_METHODS as readonly string[]).includes(value);
 }
 
+// store_payment_settings satırından, sipariş akışında gösterilecek ödeme
+// yöntemi listesini çıkarır (kapalı olan bir yöntem hiç kart olarak görünmez).
+export function resolveAvailableMethods(
+  payment: { cash_on_delivery?: boolean | null; card_on_delivery?: boolean | null; bank_transfer?: boolean | null } | null | undefined,
+): PaymentMethod[] {
+  if (!payment) return [];
+  const enabled: Record<PaymentMethod, boolean> = {
+    CASH_ON_DELIVERY: Boolean(payment.cash_on_delivery),
+    CARD_ON_DELIVERY: Boolean(payment.card_on_delivery),
+    BANK_TRANSFER: Boolean(payment.bank_transfer),
+  };
+  return PAYMENT_METHODS.filter((method) => enabled[method]);
+}
+
 export function nextStatuses(from: OrderStatus): OrderStatus[] {
   return TRANSITIONS[from] ?? [];
 }

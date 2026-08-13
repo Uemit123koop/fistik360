@@ -40,6 +40,28 @@ function CheckIcon({ className = "h-4 w-4" }: { className?: string }) {
   );
 }
 
+function GiftIcon({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className={className}>
+      <rect x="4" y="9" width="16" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.7" />
+      <path d="M4 9h16v3.5H4V9Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
+      <path d="M12 9v11" stroke="currentColor" strokeWidth="1.7" />
+      <path d="M12 9c0-2.5-1.8-4-3.4-4C7 5 6 6 6 7.2 6 8.5 7.2 9 8.5 9H12ZM12 9c0-2.5 1.8-4 3.4-4C17 5 18 6 18 7.2 18 8.5 16.8 9 15.5 9H12Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+interface DiscountTier {
+  label: string;
+  discount: string;
+}
+
+const DISCOUNT_TIERS: DiscountTier[] = [
+  { label: "4+ mahalle", discount: "%10 indirim" },
+  { label: "7+ mahalle", discount: "%15 indirim" },
+  { label: "11+ mahalle", discount: "%20 indirim" },
+];
+
 interface Plan {
   id: string;
   badge?: { label: string; tone: "popular" | "promo" };
@@ -176,6 +198,24 @@ export default function PricingPage() {
         <div className="grid gap-6 lg:grid-cols-3 lg:items-center lg:gap-7">
           {plans.map((plan) => <PlanCard key={plan.id} plan={plan} />)}
         </div>
+
+        <div className="mt-8 rounded-[24px] border border-[#f3dfa1] bg-[#fffaf0] p-6 sm:p-7">
+          <p className="flex items-center gap-2 text-base font-extrabold text-[#8a5a17]">
+            <GiftIcon className="h-5 w-5" /> Çoklu Mahalle İndirimi
+          </p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            {DISCOUNT_TIERS.map((tier) => (
+              <div key={tier.label} className="rounded-[16px] border border-[#f3dfa1] bg-white px-4 py-5 text-center">
+                <p className="text-sm font-bold text-[var(--color-muted-text)]">{tier.label}</p>
+                <p className="mt-1.5 text-xl font-extrabold text-[var(--color-accent)]">{tier.discount}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-4 text-center text-xs leading-5 text-[#8a5a17]">
+            İndirim, aylık ve yıllık planlarda eklediğin mahalle sayısına göre otomatik uygulanır.
+          </p>
+        </div>
+
         <p className="mt-10 text-center text-sm text-[var(--color-muted-text)]">
           Toptancı ve marka partneri fiyatlandırması için <Link href="/sayfalar/iletisim" className="text-link inline-flex">bizimle iletişime geç</Link>.
         </p>
