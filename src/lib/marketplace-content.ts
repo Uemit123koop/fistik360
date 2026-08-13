@@ -6,6 +6,7 @@ export interface AtlasPosition {
 export interface ProductCategory extends AtlasPosition {
   name: string;
   description: string;
+  heroImage?: string;
 }
 
 export interface PackageShowcase extends AtlasPosition {
@@ -21,7 +22,7 @@ export const productCategories: ProductCategory[] = [
   { name: "Ceviz", description: "Taze iç ceviz", column: 2, row: 0 },
   { name: "Badem", description: "Doğal ve kavrulmuş", column: 3, row: 0 },
   { name: "Kaju", description: "Kremamsı ve iri", column: 0, row: 1 },
-  { name: "Leblebi", description: "Çıtır atıştırmalık", column: 1, row: 1 },
+  { name: "Leblebi", description: "Çıtır atıştırmalık", column: 1, row: 1, heroImage: "/assets/products/leblebi-pile.webp" },
   { name: "Çekirdek", description: "Ay ve kabak çekirdeği", column: 2, row: 1 },
   { name: "Kuru Meyve", description: "İncir, kayısı ve üzüm", column: 3, row: 1 },
 ];

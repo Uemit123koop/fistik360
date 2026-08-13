@@ -10,6 +10,7 @@ export const legalEntity = {
 export const corporateLinks = [
   { href: "/sayfalar/hakkimizda", label: "Hakkımızda" },
   { href: "/fiyatlandirma", label: "Fiyatlandırma" },
+  { href: "/paketler", label: "Toplu Paketler" },
   { href: "/sayfalar/kunye", label: "Künye" },
   { href: "/sayfalar/iletisim", label: "İletişim" },
 ] as const;

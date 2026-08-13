@@ -222,6 +222,15 @@ export function HomeScrollHero({ canAccessWholesale }: HomeScrollHeroProps) {
     window.scrollTo({ top: start + distance * progress, behavior: "smooth" });
   }
 
+  function jumpToLocationPicker() {
+    stopAutoStory();
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      document.querySelector<HTMLElement>("[data-hero-location]")?.scrollIntoView({ behavior: "auto", block: "center" });
+      return;
+    }
+    scrollToScene(0.98);
+  }
+
   function playHowItWorks() {
     stopAutoStory();
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
@@ -328,7 +337,7 @@ export function HomeScrollHero({ canAccessWholesale }: HomeScrollHeroProps) {
           </h1>
           <p className="f360-hero-copy">Taptaze kuruyemiş, kuru meyve ve doğal atıştırmalıklar kapında.</p>
           <div className="f360-hero-actions">
-            <button type="button" className="f360-button-primary" onClick={playHowItWorks}>
+            <button type="button" className="f360-button-primary" onClick={jumpToLocationPicker}>
               Mahalleni Keşfet <ArrowIcon />
             </button>
             <button type="button" className="f360-button-ghost" onClick={playHowItWorks}>
