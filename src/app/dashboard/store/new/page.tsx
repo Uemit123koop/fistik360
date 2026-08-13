@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { StoreCatalogPriceForm, type CatalogProductOption } from "@/components/catalog-price-forms";
+import { DashboardPageHeader } from "@/components/dashboard-ui";
 import { requireRole } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 
@@ -17,7 +18,7 @@ export default async function NewStoreProductPage() {
 
   return (
     <div className="space-y-7">
-      <div><p className="eyebrow">Mağaza kataloğu</p><h1 className="mt-2 text-3xl font-bold">Katalogdan ürün seç</h1><p className="mt-2 text-[var(--color-muted-text)]">Fıstık360 ürününü seç, yalnız mağaza fiyatını belirle.</p></div>
+      <DashboardPageHeader eyebrow="Mağaza kataloğu" title="Katalogdan ürün seç" description="Fıstık360 ürününü seç, yalnız mağaza fiyatını belirle." />
       <StoreCatalogPriceForm products={(products ?? []) as CatalogProductOption[]} />
     </div>
   );

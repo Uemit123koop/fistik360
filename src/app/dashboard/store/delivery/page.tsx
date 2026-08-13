@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { DashboardPageHeader } from "@/components/dashboard-ui";
 import { StoreDeliverySettingsForm } from "@/components/store-delivery-settings-form";
 import { requireRole } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
@@ -48,14 +49,11 @@ export default async function StoreDeliveryPage() {
 
   return (
     <div className="space-y-7">
-      <div>
-        <p className="eyebrow">Sipariş ayarları</p>
-        <h1 className="mt-2 text-3xl font-bold">Teslimat ve ödeme</h1>
-        <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--color-muted-text)]">
-          {store.name} için minimum sepeti, teslimat ücretini ve müşterilerin ödeme seçeneklerini yönetin.
-          Kaydettiğiniz değişiklikler sepet ve ödeme ekranına yansır.
-        </p>
-      </div>
+      <DashboardPageHeader
+        eyebrow="Sipariş ayarları"
+        title="Teslimat ve ödeme"
+        description={`${store.name} için minimum sepeti, teslimat ücretini ve müşterilerin ödeme seçeneklerini yönetin. Kaydettiğiniz değişiklikler sepet ve ödeme ekranına yansır.`}
+      />
 
       <StoreDeliverySettingsForm
         initial={{

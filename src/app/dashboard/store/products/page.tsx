@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { DashboardPageHeader } from "@/components/dashboard-ui";
 import { SellerInventoryManager, type SellerProductRow } from "@/components/seller-inventory-manager";
 import { requireRole } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
@@ -21,10 +22,12 @@ export default async function StoreProductsPage() {
 
   return (
     <div>
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div><p className="eyebrow">Mağaza kataloğu</p><h1 className="mt-2 text-3xl font-bold">Ürünlerim</h1><p className="mt-2 max-w-2xl text-sm text-[var(--color-muted-text)]">Katalog ürünlerinin mağazana özel fiyatını, satış ölçüsünü, stok ve vitrin durumunu yönet.</p></div>
-        <Link href="/dashboard/store/new" className="button-primary">Katalogdan ürün seç</Link>
-      </div>
+      <DashboardPageHeader
+        eyebrow="Mağaza kataloğu"
+        title="Ürünlerim"
+        description="Katalog ürünlerinin mağazana özel fiyatını, satış ölçüsünü, stok ve vitrin durumunu yönet."
+        action={<Link href="/dashboard/store/new" className="button-primary">Katalogdan ürün seç</Link>}
+      />
       <div className="mt-7"><SellerInventoryManager initialProducts={rows} /></div>
     </div>
   );

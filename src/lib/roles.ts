@@ -11,7 +11,7 @@ export type UserRole = (typeof USER_ROLES)[number];
 const dashboardPaths: Record<UserRole, string> = {
   ADMIN: "/dashboard/admin",
   WHOLESALE_SELLER: "/dashboard/wholesale",
-  NUT_STORE: "/seller",
+  NUT_STORE: "/dashboard/store",
   CUSTOMER: "/dashboard/customer",
   BRAND_PARTNER: '/dashboard/partner',
 };
