@@ -23,7 +23,7 @@ const STATUS_TONE: Record<OrderStatus, string> = {
 
 interface Props {
   order: OrderSummary;
-  actor: "store" | "customer";
+  actor: "store" | "customer" | "admin";
   highlighted?: boolean;
 }
 
@@ -39,7 +39,8 @@ export function OrderCard({ order, actor, highlighted = false }: Props) {
           <p className="font-mono text-sm font-bold text-[var(--color-primary-dark)]">{order.orderNumber}</p>
           <p className="mt-1 text-xs text-[var(--color-muted-text)]">
             {dateFormatter.format(new Date(order.placedAt))}
-            {actor === "customer" ? ` · ${order.storeName}` : ""}
+            {actor !== "store" ? ` · ${order.storeName}` : ""}
+            {actor === "admin" ? ` · ${order.neighborhoodName}` : ""}
           </p>
         </div>
         <span className={`rounded-full px-3 py-1.5 text-xs font-extrabold ${STATUS_TONE[order.status]}`}>
@@ -78,7 +79,7 @@ export function OrderCard({ order, actor, highlighted = false }: Props) {
         </div>
       )}
 
-      {actor === "store" && (
+      {(actor === "store" || actor === "admin") && (
         <div className="mt-4 rounded-[14px] bg-[var(--color-surface)] p-4 text-sm leading-6">
           <p className="font-bold">{order.customerName} · {order.customerPhone}</p>
           <p className="mt-1 text-[var(--color-muted-text)]">{order.deliveryAddress}</p>
@@ -86,7 +87,7 @@ export function OrderCard({ order, actor, highlighted = false }: Props) {
         </div>
       )}
 
-      <OrderStatusActions orderId={order.id} status={order.status} actor={actor} />
+      {actor !== "admin" && <OrderStatusActions orderId={order.id} status={order.status} actor={actor} />}
     </article>
   );
 }

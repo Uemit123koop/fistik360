@@ -7,6 +7,7 @@ import { requireRole } from "@/lib/auth";
 const adminLinks = [
   { href: "/admin/testik", label: "Super Admin" },
   { href: "/dashboard/admin", label: "Genel Bakış" },
+  { href: "/dashboard/admin/orders", label: "Siparişler" },
   { href: "/dashboard/admin/partner-applications", label: "Partner Başvuruları" },
   { href: "/dashboard/admin/users", label: "Kullanıcılar" },
   { href: "/dashboard/admin/stores", label: "Kuruyemişçiler" },

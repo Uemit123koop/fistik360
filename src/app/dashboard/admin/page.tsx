@@ -52,7 +52,7 @@ export default async function AdminDashboardPage() {
         {metric("Yayındaki mağaza", activeStores.count ?? 0, "Vitrinde görünen kuruyemişçiler", "/dashboard/admin/stores")}
         {metric("Yayın bekleyen", pendingStores.count ?? 0, "Onboarding tamamlanmadı", "/dashboard/admin/stores")}
         {metric("Askıdaki mağaza", suspendedStores.count ?? 0, "Platform kararıyla kapalı", "/dashboard/admin/stores")}
-        {metric("Açık sipariş", openOrders.count ?? 0, "Teslim edilmemiş siparişler")}
+        {metric("Açık sipariş", openOrders.count ?? 0, "Teslim edilmemiş siparişler", "/dashboard/admin/orders")}
         {metric("Bekleyen toptan talep", openInquiries.count ?? 0, "Toptancı yanıtı bekliyor")}
         {metric("Aktif paket", activePackages.count ?? 0, "Satıştaki hazır seçkiler", "/dashboard/admin/packages")}
       </div>
