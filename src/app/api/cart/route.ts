@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerUser } from "@/lib/auth";
 import { getCustomerCart } from "@/lib/cart";
 import { resolveAvailableMethods } from "@/lib/orders";
+import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 
 export async function GET() {
@@ -24,10 +25,31 @@ export async function GET() {
         : Promise.resolve({ data: null }),
     ]);
 
+    const availableMethods = resolveAvailableMethods(payment);
+    let bankAccountHolder: string | null = null;
+    let bankIban: string | null = null;
+    if (cart && availableMethods.includes("BANK_TRANSFER")) {
+      // store_bank_accounts yalnız mağaza sahibine açık RLS'e sahip — müşteri
+      // ödeme adımında gerçek IBAN'ı görebilsin diye burada bilerek admin
+      // client ile (yalnız aktif varsayılan hesap) okunuyor.
+      const admin = createSupabaseAdminClient();
+      const { data: bank } = await admin
+        .from("store_bank_accounts")
+        .select("account_holder_name, iban")
+        .eq("store_id", cart.store.id)
+        .eq("is_active", true)
+        .eq("is_default", true)
+        .maybeSingle();
+      bankAccountHolder = bank?.account_holder_name ?? null;
+      bankIban = bank?.iban ?? null;
+    }
+
     return NextResponse.json({
       authRequired: false,
       cart,
-      availableMethods: resolveAvailableMethods(payment),
+      availableMethods,
+      bankAccountHolder,
+      bankIban,
       customer: { fullName: profile?.full_name ?? null, phone: profile?.phone ?? null },
     });
   } catch {

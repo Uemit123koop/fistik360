@@ -111,5 +111,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: mapped.error }, { status: mapped.status });
   }
 
-  return NextResponse.json({ ok: true, orderId });
+  // Havale seçildiyse sepet çekmecesindeki başarı ekranı IBAN'ı anında
+  // göstersin diye burada da döndürüyoruz — müşteri sipariş geçmişine
+  // gitmeden ödemeyi yapabilsin.
+  const { data: placedOrder } = await admin
+    .from("orders")
+    .select("total_amount, bank_account_holder_snapshot, bank_iban_snapshot")
+    .eq("id", orderId)
+    .maybeSingle();
+
+  return NextResponse.json({
+    ok: true,
+    orderId,
+    total: placedOrder ? Number(placedOrder.total_amount) : null,
+    bankAccountHolder: placedOrder?.bank_account_holder_snapshot ?? null,
+    bankIban: placedOrder?.bank_iban_snapshot ?? null,
+  });
 }

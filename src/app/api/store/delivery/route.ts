@@ -275,7 +275,7 @@ export async function POST(request: Request) {
   if (accountHolderName.length < 2) return errorResponse("Hesap sahibinin adını girin.", 400);
   if (!IBAN_PATTERN.test(iban)) return errorResponse("IBAN, TR ile başlayan 26 karakterden oluşmalıdır.", 400);
 
-  const [duplicateResult, defaultResult] = await Promise.all([
+  const [duplicateResult, defaultResult, activeResult] = await Promise.all([
     supabase
       .from("store_bank_accounts")
       .select("id, is_active")
@@ -290,12 +290,23 @@ export async function POST(request: Request) {
       .eq("is_active", true)
       .eq("is_default", true)
       .maybeSingle(),
+    supabase
+      .from("store_bank_accounts")
+      .select("id")
+      .eq("store_id", store.id)
+      .eq("is_active", true)
+      .maybeSingle(),
   ]);
 
-  if (duplicateResult.error || defaultResult.error) return errorResponse("Banka hesapları kontrol edilemedi.", 500);
+  if (duplicateResult.error || defaultResult.error || activeResult.error) return errorResponse("Banka hesapları kontrol edilemedi.", 500);
   const duplicate = duplicateResult.data;
   const currentDefault = defaultResult.data;
   if (duplicate?.is_active) return errorResponse("Bu IBAN mağazanıza daha önce eklenmiş.", 409);
+  // Mağaza başına tek aktif hesap tutulur — farklı bir IBAN eklenmeden önce
+  // mevcut hesap silinmeli (bkz. DELETE). Çift hesap oluşmasını burada engelliyoruz.
+  if (activeResult.data && activeResult.data.id !== duplicate?.id) {
+    return errorResponse("Zaten aktif bir banka hesabınız var. Yeni hesap eklemeden önce mevcut hesabı silin.", 409);
+  }
   const makeDefault = body.makeDefault === true || !currentDefault;
 
   if (makeDefault && currentDefault) {

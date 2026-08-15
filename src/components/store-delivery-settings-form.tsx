@@ -41,6 +41,20 @@ type Feedback = { error?: string; success?: string };
 type DeliveryErrors = Partial<Record<"minimum" | "fee" | "threshold", string>>;
 
 const IBAN_PATTERN = /^TR\d{24}$/;
+const IBAN_DIGIT_COUNT = 24;
+
+// Yalnız rakamları tutar (yapıştırırken "TR" gelse bile \D onu da eler),
+// TR öneki ayrı bir sabit etiket olarak input'un üstünde gösterildiği için
+// kullanıcı hiçbir zaman TR'yi silemez/değiştiremez.
+function extractIbanDigits(value: string) {
+  return value.replace(/\D/g, "").slice(0, IBAN_DIGIT_COUNT);
+}
+
+// Girilmemiş haneleri alt çizgiyle gösterip 4'erli gruplar hâlinde biçimlendirir.
+function maskIbanDigits(digits: string) {
+  const padded = digits.padEnd(IBAN_DIGIT_COUNT, "_");
+  return padded.replace(/(.{4})/g, "$1 ").trim();
+}
 
 function moneyInput(value: number | null) {
   return value === null ? "" : String(value);
@@ -92,8 +106,7 @@ export function StoreDeliverySettingsForm({ initial }: Props) {
   const [payment, setPayment] = useState(initial.payment);
   const [accounts, setAccounts] = useState(initial.bankAccounts.filter((account) => account.isActive));
   const [accountHolderName, setAccountHolderName] = useState("");
-  const [iban, setIban] = useState("");
-  const [makeDefault, setMakeDefault] = useState(false);
+  const [ibanDigits, setIbanDigits] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [deliveryErrors, setDeliveryErrors] = useState<DeliveryErrors>({});
   const [deliveryFeedback, setDeliveryFeedback] = useState<Feedback>({});
@@ -174,41 +187,26 @@ export function StoreDeliverySettingsForm({ initial }: Props) {
 
   async function addBankAccount(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const normalizedIban = normalizeIban(iban);
+    const normalizedIban = `TR${ibanDigits}`;
     if (accountHolderName.trim().length < 2) {
       setBankFeedback({ error: "Hesap sahibinin adını girin." });
       return;
     }
     if (!IBAN_PATTERN.test(normalizedIban)) {
-      setBankFeedback({ error: "IBAN, TR ile başlamalı ve ardından 24 rakam içermelidir." });
+      setBankFeedback({ error: `IBAN eksik: ${IBAN_DIGIT_COUNT} haneden ${ibanDigits.length} tanesini girdin.` });
       return;
     }
 
     setBusy("bank");
     setBankFeedback({});
     try {
-      await apiRequest("POST", { accountHolderName, iban: normalizedIban, makeDefault });
+      await apiRequest("POST", { accountHolderName, iban: normalizedIban, makeDefault: true });
       await refreshAccounts();
       setAccountHolderName("");
-      setIban("");
-      setMakeDefault(false);
+      setIbanDigits("");
       setBankFeedback({ success: "Banka hesabı eklendi." });
     } catch (error) {
       setBankFeedback({ error: error instanceof Error ? error.message : "Banka hesabı eklenemedi." });
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  async function setDefaultAccount(accountId: string) {
-    setBusy(`default:${accountId}`);
-    setBankFeedback({});
-    try {
-      await apiRequest("PATCH", { section: "defaultBankAccount", accountId });
-      await refreshAccounts();
-      setBankFeedback({ success: "Varsayılan banka hesabı güncellendi." });
-    } catch (error) {
-      setBankFeedback({ error: error instanceof Error ? error.message : "Varsayılan hesap değiştirilemedi." });
     } finally {
       setBusy(null);
     }
@@ -280,49 +278,59 @@ export function StoreDeliverySettingsForm({ initial }: Props) {
         <div>
           <p className="eyebrow">3 · Banka hesabı</p>
           <h2 id="bank-settings-title" className="mt-2 text-2xl font-bold">Havale hesabı</h2>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-muted-text)]">IBAN yalnız mağaza sahibi tarafından yönetilir; müşteriye sadece kontrollü sipariş akışında gösterilir.</p>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-muted-text)]">
+            IBAN yalnız mağaza sahibi tarafından yönetilir; müşteriye sadece kontrollü sipariş akışında gösterilir. Mağaza başına tek hesap tutulur — değiştirmek için önce mevcut hesabı sil.
+          </p>
         </div>
         {bankTransferNeedsAccount && <div className="mt-5"><BankTransferWarning urgent /></div>}
 
-        <form onSubmit={addBankAccount} noValidate className="mt-6 rounded-[16px] border border-[var(--color-border-soft)] bg-[var(--color-surface)] p-4 sm:p-5">
-          <div className="grid gap-5 md:grid-cols-2">
-            <label className="form-field" htmlFor="account-holder-name">Hesap sahibi adı
-              <input id="account-holder-name" className="form-control" value={accountHolderName} onChange={(event) => setAccountHolderName(event.target.value)} maxLength={120} autoComplete="name" required />
-            </label>
-            <label className="form-field" htmlFor="store-iban">IBAN
-              <input id="store-iban" className="form-control font-mono uppercase tracking-wide" value={iban} onChange={(event) => setIban(event.target.value.toUpperCase())} onBlur={() => setIban(formatIban(iban))} maxLength={32} autoComplete="off" autoCapitalize="characters" spellCheck={false} placeholder="TR00 0000 0000 0000 0000 0000 00" aria-describedby="store-iban-help" required />
-              <span id="store-iban-help" className="text-xs font-medium leading-5 text-[var(--color-muted-text)]">TR ile başlayan 26 karakter: TR + 24 rakam.</span>
-            </label>
-          </div>
-          <label className="mt-4 flex min-h-11 cursor-pointer items-center gap-3 text-sm font-bold">
-            <input type="checkbox" checked={makeDefault} onChange={(event) => setMakeDefault(event.target.checked)} className="h-5 w-5 accent-[var(--color-primary)]" />
-            Bu hesabı varsayılan yap
-          </label>
-          <button type="submit" disabled={busy !== null} className="button-secondary mt-4 w-full sm:w-auto">{busy === "bank" ? "Ekleniyor..." : "Banka hesabı ekle"}</button>
-        </form>
+        {accounts.length === 0 ? (
+          <form onSubmit={addBankAccount} noValidate className="mt-6 rounded-[16px] border border-[var(--color-border-soft)] bg-[var(--color-surface)] p-4 sm:p-5">
+            <div className="grid gap-5 md:grid-cols-2">
+              <label className="form-field" htmlFor="account-holder-name">Hesap sahibi adı
+                <input id="account-holder-name" className="form-control" value={accountHolderName} onChange={(event) => setAccountHolderName(event.target.value)} maxLength={120} autoComplete="name" required />
+              </label>
+              <label className="form-field" htmlFor="store-iban">IBAN
+                <span className="relative block">
+                  <span aria-hidden="true" className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 font-mono font-extrabold tracking-wide text-[var(--color-ink)]">TR</span>
+                  <input
+                    id="store-iban"
+                    className="form-control pl-11 font-mono uppercase tracking-[0.15em]"
+                    value={maskIbanDigits(ibanDigits)}
+                    onChange={(event) => setIbanDigits(extractIbanDigits(event.target.value))}
+                    onPaste={(event) => {
+                      event.preventDefault();
+                      setIbanDigits(extractIbanDigits(event.clipboardData.getData("text")));
+                    }}
+                    inputMode="numeric"
+                    maxLength={IBAN_DIGIT_COUNT + 6}
+                    autoComplete="off"
+                    spellCheck={false}
+                    aria-describedby="store-iban-help"
+                    required
+                  />
+                </span>
+                <span id="store-iban-help" className="text-xs font-medium leading-5 text-[var(--color-muted-text)]">
+                  TR sabit — ardından {IBAN_DIGIT_COUNT} rakam gir ({ibanDigits.length}/{IBAN_DIGIT_COUNT}).
+                </span>
+              </label>
+            </div>
+            <button type="submit" disabled={busy !== null} className="button-secondary mt-4 w-full sm:w-auto">{busy === "bank" ? "Ekleniyor..." : "Banka hesabı ekle"}</button>
+          </form>
+        ) : (
+          <ul className="mt-6 space-y-3">
+            {accounts.map((account) => (
+              <li key={account.id} className="flex flex-col gap-4 rounded-[16px] border border-[var(--color-border)] bg-[var(--color-surface)] p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="font-extrabold">{account.accountHolderName}</p>
+                  <p className="mt-2 break-all font-mono text-sm text-[var(--color-muted-text)]">{formatIban(account.iban)}</p>
+                </div>
+                <button type="button" onClick={() => void deleteAccount(account)} disabled={busy !== null} className="inline-flex min-h-11 w-full items-center justify-center rounded-full border border-red-200 px-4 text-sm font-extrabold text-red-700 transition-colors hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 disabled:cursor-not-allowed disabled:opacity-55 sm:w-auto" aria-label={`${account.accountHolderName} banka hesabını sil`}>{busy === `delete:${account.id}` ? "Siliniyor..." : "Sil"}</button>
+              </li>
+            ))}
+          </ul>
+        )}
         <div className="mt-4" aria-live="polite"><FeedbackMessage feedback={bankFeedback} /></div>
-
-        <div className="mt-6">
-          <h3 className="text-lg font-bold">Kayıtlı hesaplar</h3>
-          {accounts.length === 0 ? (
-            <p className="mt-3 rounded-[14px] border border-dashed border-[var(--color-border)] p-5 text-sm leading-6 text-[var(--color-muted-text)]">Henüz banka hesabı eklenmemiş.</p>
-          ) : (
-            <ul className="mt-3 space-y-3">
-              {accounts.map((account) => (
-                <li key={account.id} className="flex flex-col gap-4 rounded-[16px] border border-[var(--color-border)] bg-[var(--color-surface)] p-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2"><p className="font-extrabold">{account.accountHolderName}</p>{account.isDefault && <span className="rounded-full bg-[var(--color-primary-soft)] px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.1em] text-[var(--color-primary-dark)]">Varsayılan</span>}</div>
-                    <p className="mt-2 break-all font-mono text-sm text-[var(--color-muted-text)]">{formatIban(account.iban)}</p>
-                  </div>
-                  <div className="flex flex-col gap-2 sm:flex-row">
-                    {!account.isDefault && <button type="button" onClick={() => void setDefaultAccount(account.id)} disabled={busy !== null} className="button-secondary w-full sm:w-auto">{busy === `default:${account.id}` ? "Ayarlanıyor..." : "Varsayılan yap"}</button>}
-                    <button type="button" onClick={() => void deleteAccount(account)} disabled={busy !== null} className="inline-flex min-h-11 w-full items-center justify-center rounded-full border border-red-200 px-4 text-sm font-extrabold text-red-700 transition-colors hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 disabled:cursor-not-allowed disabled:opacity-55 sm:w-auto" aria-label={`${account.accountHolderName} banka hesabını sil`}>{busy === `delete:${account.id}` ? "Siliniyor..." : "Sil"}</button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
       </section>
     </div>
   );

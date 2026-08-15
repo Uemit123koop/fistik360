@@ -1,3 +1,4 @@
+import { BankTransferDetails } from "@/components/bank-transfer-details";
 import { OrderStatusActions } from "@/components/order-status-actions";
 import {
   ORDER_STATUS_LABELS,
@@ -72,10 +73,8 @@ export function OrderCard({ order, actor, highlighted = false }: Props) {
       </div>
 
       {order.bankIban && (
-        <div className="mt-4 rounded-[14px] border border-dashed border-[var(--color-primary-light)] bg-[var(--color-primary-soft)] p-4 text-sm leading-6 text-[var(--color-primary-dark)]">
-          <p className="font-bold">Havale bilgileri</p>
-          <p className="mt-1">{order.bankAccountHolder}</p>
-          <p className="font-mono text-xs">{order.bankIban}</p>
+        <div className="mt-4">
+          <BankTransferDetails accountHolder={order.bankAccountHolder ?? ""} iban={order.bankIban} amount={order.total} />
         </div>
       )}
 

@@ -13,11 +13,14 @@ import {
 import { createPortal } from "react-dom";
 import { addAddressAction, deleteAddressAction, setDefaultAddressAction } from "@/app/address-actions";
 import { addToCartAction, updateCartItemAction } from "@/app/cart-actions";
+import { BankTransferDetails } from "@/components/bank-transfer-details";
 import { CartArtwork, CartIcon, formatMoney } from "@/components/cart-ui";
+import { onCartCountBump } from "@/lib/cart-count-bus";
 import { ArrowIcon, MapPinIcon, ShieldIcon } from "@/components/marketplace-ui";
 import { TurkeyLocationFields } from "@/components/turkey-location-fields";
 import type { CartView, CartViewItem } from "@/lib/cart";
 import { clearGuestCart, guestCartCount, readGuestCart, updateGuestCartEntryQuantity, type GuestCartEntry } from "@/lib/guest-cart";
+import { resolveLocationFromNames } from "@/lib/location-client";
 import type { LocationSelection } from "@/lib/location-types";
 import { PAYMENT_METHOD_LABELS, type PaymentMethod } from "@/lib/orders";
 import { formatTurkishPhoneDisplay, normalizeTurkishPhone } from "@/lib/phone";
@@ -35,7 +38,16 @@ interface DrawerData {
   cart: CartView | null;
   isGuest: boolean;
   availableMethods: PaymentMethod[];
+  bankAccountHolder: string | null;
+  bankIban: string | null;
   customer: DrawerCustomer | null;
+}
+
+interface PlacedOrderInfo {
+  orderId: string;
+  total: number | null;
+  bankAccountHolder: string | null;
+  bankIban: string | null;
 }
 
 interface AddressRow {
@@ -54,7 +66,7 @@ interface AddressRow {
 const METHOD_NOTES: Record<PaymentMethod, string> = {
   CASH_ON_DELIVERY: "Teslimatta nakit ödersin.",
   CARD_ON_DELIVERY: "Kurye POS cihazıyla gelir.",
-  BANK_TRANSFER: "Sipariş sonrası IBAN bilgisi gösterilir.",
+  BANK_TRANSFER: "Seçtiğinde hesap bilgileri hemen aşağıda görünür.",
 };
 
 async function fetchCartData(): Promise<DrawerData> {
@@ -63,6 +75,8 @@ async function fetchCartData(): Promise<DrawerData> {
     authRequired: boolean;
     cart: CartView | null;
     availableMethods: PaymentMethod[];
+    bankAccountHolder?: string | null;
+    bankIban?: string | null;
     customer: DrawerCustomer | null;
     error?: string;
   };
@@ -71,19 +85,39 @@ async function fetchCartData(): Promise<DrawerData> {
   if (json.authRequired) {
     const entries = readGuestCart();
     if (entries.length === 0) {
-      return { cart: null, isGuest: true, availableMethods: [], customer: null };
+      return { cart: null, isGuest: true, availableMethods: [], bankAccountHolder: null, bankIban: null, customer: null };
     }
     const guestRes = await fetch("/api/cart/guest", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ entries }),
     });
-    const guestJson = (await guestRes.json()) as { cart: CartView | null; availableMethods: PaymentMethod[]; error?: string };
+    const guestJson = (await guestRes.json()) as {
+      cart: CartView | null;
+      availableMethods: PaymentMethod[];
+      bankAccountHolder?: string | null;
+      bankIban?: string | null;
+      error?: string;
+    };
     if (!guestRes.ok || guestJson.error) throw new Error(guestJson.error ?? "Sepet okunamadı.");
-    return { cart: guestJson.cart, isGuest: true, availableMethods: guestJson.availableMethods ?? [], customer: null };
+    return {
+      cart: guestJson.cart,
+      isGuest: true,
+      availableMethods: guestJson.availableMethods ?? [],
+      bankAccountHolder: guestJson.bankAccountHolder ?? null,
+      bankIban: guestJson.bankIban ?? null,
+      customer: null,
+    };
   }
 
-  return { cart: json.cart, isGuest: false, availableMethods: json.availableMethods ?? [], customer: json.customer ?? null };
+  return {
+    cart: json.cart,
+    isGuest: false,
+    availableMethods: json.availableMethods ?? [],
+    bankAccountHolder: json.bankAccountHolder ?? null,
+    bankIban: json.bankIban ?? null,
+    customer: json.customer ?? null,
+  };
 }
 
 async function migrateGuestCartToReal(entries: GuestCartEntry[]) {
@@ -196,6 +230,18 @@ function CartDrawerUrlTrigger() {
 export function CartTriggerButton({ count, className }: { count: number; className?: string }) {
   const { openDrawer } = useCartDrawer();
   const [guestCount, setGuestCount] = useState(0);
+  // `count` sunucudan gelir ve yalnız sayfa/route yenilendiğinde güncellenir
+  // (router.refresh() bir RSC round-trip'i gerektirir, gözle görülür gecikir).
+  // Sepete ekleme anında hissedilsin diye burada iyimser bir fark tutuyoruz;
+  // sunucu sayısı gerçekten yenilendiğinde (count değiştiğinde) sıfırlanır.
+  const [optimisticBump, setOptimisticBump] = useState(0);
+  const [syncedCount, setSyncedCount] = useState(count);
+  if (count !== syncedCount) {
+    // Sunucudan taze `count` geldi (router.refresh() tamamlandı) — iyimser
+    // farkı sıfırla, artık gerçek sayı zaten güncel.
+    setSyncedCount(count);
+    setOptimisticBump(0);
+  }
 
   useEffect(() => {
     function sync() {
@@ -210,7 +256,9 @@ export function CartTriggerButton({ count, className }: { count: number; classNa
     };
   }, []);
 
-  const total = count + guestCount;
+  useEffect(() => onCartCountBump((delta) => setOptimisticBump((prev) => prev + delta)), []);
+
+  const total = count + guestCount + optimisticBump;
   const countLabel = total > 99 ? "99+" : String(total);
   return (
     <button type="button" onClick={openDrawer} className={className} aria-label={`Sepet, ${total} ürün`} aria-haspopup="dialog">
@@ -437,7 +485,7 @@ function CartTabContent({
               <CartArtwork item={item} index={index} className="h-20 w-20 shrink-0 rounded-[14px]" />
               <div className="min-w-0 flex-1">
                 <p className="text-[11px] font-extrabold uppercase tracking-[0.08em] text-[var(--color-accent)]">
-                  {item.kind === "PACKAGE" ? "Paket" : "Ürün"}
+                  {item.kind === "PACKAGE" ? "Paket" : item.kind === "CUSTOM_MIX" ? "Karışım" : "Ürün"}
                 </p>
                 <h3 className="mt-0.5 truncate text-sm font-bold text-[var(--color-ink)]">{item.name}</h3>
                 <p className="mt-0.5 text-xs text-[var(--color-muted-text)]">{item.detail}</p>
@@ -546,42 +594,6 @@ function DeliveryTabContent({
   useEffect(() => {
     if (!data.isGuest && addresses === null) loadAddresses();
   }, [data.isGuest, addresses, loadAddresses]);
-
-  // TurkeyLocationFields, Supabase'in kendi id'leri yerine turkiyeapi.dev'in sayısal
-  // id'lerini kullanır (bkz. /api/locations) — bu yüzden sepetin servis mahallesini
-  // seed etmek için Supabase id'lerini değil, il/ilçe/mahalle adlarını aynı API'de
-  // arayıp karşılık gelen sayısal id'leri buluyoruz.
-  async function resolveLocationFromNames(provinceName: string, districtName: string, neighborhoodName: string): Promise<LocationSelection | null> {
-    const sameName = (a: string, b: string) => a.localeCompare(b, "tr", { sensitivity: "base" }) === 0;
-    try {
-      const provinceRes = await fetch(`/api/locations?level=provinces`);
-      const provinceJson = (await provinceRes.json()) as { items?: { id: string; name: string }[] };
-      const province = provinceJson.items?.find((item) => sameName(item.name, provinceName));
-      if (!province) return null;
-
-      const districtRes = await fetch(`/api/locations?level=districts&parentId=${province.id}`);
-      const districtJson = (await districtRes.json()) as { items?: { id: string; name: string }[] };
-      const district = districtJson.items?.find((item) => sameName(item.name, districtName));
-      if (!district) return null;
-
-      const settlementRes = await fetch(`/api/locations?level=settlements&parentId=${district.id}`);
-      const settlementJson = (await settlementRes.json()) as { items?: { id: string; name: string; type?: "NEIGHBORHOOD" }[] };
-      const settlement = settlementJson.items?.find((item) => sameName(item.name, neighborhoodName));
-      if (!settlement || !settlement.type) return null;
-
-      return {
-        provinceId: province.id,
-        provinceName: province.name,
-        districtId: district.id,
-        districtName: district.name,
-        settlementId: settlement.id,
-        settlementName: settlement.name,
-        settlementType: settlement.type,
-      };
-    } catch {
-      return null;
-    }
-  }
 
   async function openAddForm() {
     setShowAddForm(true);
@@ -903,7 +915,7 @@ function PaymentTabContent({
   phone: string;
   selectedAddress: AddressRow | null;
   onBack: () => void;
-  onPlaced: (orderId: string) => void;
+  onPlaced: (info: PlacedOrderInfo) => void;
 }) {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | "">(data.availableMethods[0] ?? "");
   const [contractAccepted, setContractAccepted] = useState(false);
@@ -931,12 +943,24 @@ function PaymentTabContent({
           privacyAcknowledged,
         }),
       });
-      const json = (await res.json()) as { ok?: boolean; orderId?: string; error?: string };
+      const json = (await res.json()) as {
+        ok?: boolean;
+        orderId?: string;
+        error?: string;
+        total?: number | null;
+        bankAccountHolder?: string | null;
+        bankIban?: string | null;
+      };
       if (!res.ok || !json.ok || !json.orderId) {
         setError(json.error ?? "Sipariş oluşturulamadı.");
         return;
       }
-      onPlaced(json.orderId);
+      onPlaced({
+        orderId: json.orderId,
+        total: json.total ?? null,
+        bankAccountHolder: json.bankAccountHolder ?? null,
+        bankIban: json.bankIban ?? null,
+      });
     } catch {
       setError("Bağlantı kurulamadı.");
     } finally {
@@ -977,9 +1001,14 @@ function PaymentTabContent({
                 onChange={() => setPaymentMethod(method)}
                 className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--color-primary)]"
               />
-              <span>
+              <span className="min-w-0 flex-1">
                 <span className="block font-bold">{PAYMENT_METHOD_LABELS[method]}</span>
                 <span className="mt-0.5 block text-xs leading-5 text-[var(--color-muted-text)]">{METHOD_NOTES[method]}</span>
+                {method === "BANK_TRANSFER" && paymentMethod === "BANK_TRANSFER" && data.bankIban && (
+                  <span className="mt-3 block">
+                    <BankTransferDetails accountHolder={data.bankAccountHolder ?? ""} iban={data.bankIban} amount={data.cart?.totals.total} />
+                  </span>
+                )}
               </span>
             </label>
           ))}
@@ -1034,7 +1063,8 @@ function PaymentTabContent({
 
 // ─── Başarı ekranı ───────────────────────────────────────────────────────────
 
-function OrderPlacedContent({ orderId, closeDrawer }: { orderId: string; closeDrawer: () => void }) {
+function OrderPlacedContent({ order, closeDrawer }: { order: PlacedOrderInfo; closeDrawer: () => void }) {
+  const needsTransfer = Boolean(order.bankIban);
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-6 py-12 text-center">
       <span className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-primary-soft)] text-[var(--color-primary-dark)]">
@@ -1043,9 +1073,16 @@ function OrderPlacedContent({ orderId, closeDrawer }: { orderId: string; closeDr
       <p className="eyebrow mt-5">Sipariş alındı</p>
       <h2 className="mt-2 font-serif text-2xl font-bold text-[var(--color-ink)]">Siparişin alındı!</h2>
       <p className="mx-auto mt-3 max-w-xs text-sm leading-6 text-[var(--color-muted-text)]">
-        Mağaza siparişini onayladığında bilgilendirileceksin.
+        {needsTransfer
+          ? "Siparişinin onaylanması için aşağıdaki hesaba havale/EFT yapman gerekiyor."
+          : "Mağaza siparişini onayladığında bilgilendirileceksin."}
       </p>
-      <Link href={`/dashboard/customer/orders?placed=${orderId}`} onClick={closeDrawer} className="button-primary mt-6">
+      {needsTransfer && (
+        <div className="mt-5 w-full max-w-xs text-left">
+          <BankTransferDetails accountHolder={order.bankAccountHolder ?? ""} iban={order.bankIban!} amount={order.total ?? undefined} />
+        </div>
+      )}
+      <Link href={`/dashboard/customer/orders?placed=${order.orderId}`} onClick={closeDrawer} className="button-primary mt-6">
         Siparişlerimi gör <ArrowIcon className="h-4 w-4" />
       </Link>
       <button type="button" onClick={closeDrawer} className="mt-3 text-xs font-bold text-[var(--color-primary)] hover:text-[var(--color-primary-dark)]">
@@ -1072,7 +1109,7 @@ function DrawerContent({
   const [addresses, setAddresses] = useState<AddressRow[] | null>(null);
   const [addressesLoading, setAddressesLoading] = useState(false);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
-  const [orderPlaced, setOrderPlaced] = useState<string | null>(null);
+  const [orderPlaced, setOrderPlaced] = useState<PlacedOrderInfo | null>(null);
 
   const loadAddresses = useCallback(async () => {
     setAddressesLoading(true);
@@ -1095,7 +1132,7 @@ function DrawerContent({
   );
 
   if (orderPlaced) {
-    return <OrderPlacedContent orderId={orderPlaced} closeDrawer={closeDrawer} />;
+    return <OrderPlacedContent order={orderPlaced} closeDrawer={closeDrawer} />;
   }
 
   if (!data.cart || data.cart.items.length === 0) {
