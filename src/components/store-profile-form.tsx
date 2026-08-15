@@ -122,21 +122,6 @@ export function StoreProfileForm({ initial, primaryLocationNames }: Props) {
         </div>
       </div>
 
-      <label className="form-field">Hakkımızda
-        <textarea className="form-control min-h-32 resize-y" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} maxLength={1500} />
-      </label>
-      <label className="form-field">Açık adres
-        <textarea className="form-control min-h-24 resize-y" value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} maxLength={500} />
-      </label>
-      <div className="grid gap-5 sm:grid-cols-2">
-        <label className="form-field">Logo URL
-          <input className="form-control" value={form.logoUrl} onChange={(event) => setForm({ ...form, logoUrl: event.target.value })} type="url" placeholder="https://..." />
-        </label>
-        <label className="form-field">Kapak görseli URL
-          <input className="form-control" value={form.coverUrl} onChange={(event) => setForm({ ...form, coverUrl: event.target.value })} type="url" placeholder="https://..." />
-        </label>
-      </div>
-
       {feedback.error && <p className="rounded-[12px] bg-red-50 p-4 text-sm font-semibold text-red-800" role="alert">{feedback.error}</p>}
       {feedback.success && <p className="rounded-[12px] bg-emerald-50 p-4 text-sm font-semibold text-emerald-800" role="status">{feedback.success}</p>}
 
