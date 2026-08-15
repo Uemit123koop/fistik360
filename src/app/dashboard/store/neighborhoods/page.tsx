@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { AddNeighborhoodForm } from "@/components/add-neighborhood-form";
 import { DashboardPageHeader } from "@/components/dashboard-ui";
 import { MapPinIcon } from "@/components/marketplace-ui";
+import { NeighborhoodApplyPanel } from "@/components/neighborhood-apply-panel";
 import { StoreProfileForm } from "@/components/store-profile-form";
 import { StorePublishPanel } from "@/components/store-publish-panel";
 import { requireRole } from "@/lib/auth";
@@ -141,10 +142,15 @@ export default async function StoreNeighborhoodsPage({
                 {area.is_primary && (
                   <span className="shrink-0 rounded-full bg-[var(--color-primary)] px-2.5 py-1 text-[10px] font-extrabold text-white">Ücretsiz · Ana</span>
                 )}
+                <Link href={`/dashboard/store/neighborhoods/${area.id}`} className="text-link shrink-0 text-xs">Ayarları düzenle</Link>
               </li>
             ))}
           </ul>
         </div>
+
+        <NeighborhoodApplyPanel
+          neighborhoods={activeAreas.map((area) => ({ id: area.id, neighborhood: area.neighborhood, district: area.district }))}
+        />
 
         <div className="mt-5 rounded-[20px] border border-[var(--color-border)] bg-white p-5 sm:p-6">
           <h3 className="text-lg font-bold text-[var(--color-ink)]">Yeni mahalle ekle</h3>
