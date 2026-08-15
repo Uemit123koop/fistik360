@@ -1,9 +1,11 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { StorefrontItemCard } from "@/components/cart-ui";
+import { PackageCard } from "@/components/cart-ui";
+import { CustomMixBuilder } from "@/components/custom-mix-builder";
 import { MapPinIcon, ShieldIcon } from "@/components/marketplace-ui";
 import { SiteShell } from "@/components/site-shell";
+import { StoreCatalogBrowser } from "@/components/store-catalog-browser";
 import { getPublicStorefront } from "@/lib/cart";
 
 function safeMediaUrl(value: string | null) {
@@ -83,26 +85,41 @@ export default async function StoreDetailPage({ params, searchParams }: PageProp
           </div>
         </div>
       </section>
-      <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
-        <div className="section-heading">
-          <div><p className="eyebrow">Günlük taze</p><h2 className="section-title">Perakende ürünler</h2><p className="section-description">Fiyat ve satış birimini gör, tek dokunuşla aynı mağazalı sepetine ekle.</p></div>
-          <Link href="/sepet" className="button-secondary">Sepeti görüntüle</Link>
-        </div>
-        {store.products.length ? (
-          <div className="mt-7 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-            {store.products.map((item, index) => <StorefrontItemCard key={item.id} item={item} index={index} storeId={store.id} serviceAreaId={store.serviceArea?.id ?? null} />)}
-          </div>
-        ) : <p className="mt-7 rounded-[18px] border border-dashed border-[var(--color-border)] bg-white p-6 text-[var(--color-muted-text)]">Bu mağazada şu an aktif perakende ürün bulunmuyor.</p>}
-      </section>
+      {store.products.length > 0 && (
+        <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
+          <CustomMixBuilder
+            categoryTree={store.categoryTree}
+            products={store.products}
+            storeId={store.id}
+            serviceAreaId={store.serviceArea?.id ?? null}
+          />
+        </section>
+      )}
       <section className="border-y border-[var(--color-border-soft)] bg-[var(--color-surface-strong)]">
         <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
           <div className="section-heading"><div><p className="eyebrow">Özenle hazırlanır</p><h2 className="section-title">Paketler</h2><p className="section-description">Mağazanın satışa açık paketlerini aynı teslimat bölgesiyle sepetine ekle.</p></div></div>
           {store.packages.length ? (
-            <div className="mt-7 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-              {store.packages.map((item, index) => <StorefrontItemCard key={item.id} item={item} index={index} storeId={store.id} serviceAreaId={store.serviceArea?.id ?? null} />)}
+            <div className="mt-7 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {store.packages.map((item) => <PackageCard key={item.id} item={item} storeId={store.id} serviceAreaId={store.serviceArea?.id ?? null} />)}
             </div>
           ) : <p className="mt-7 rounded-[18px] border border-dashed border-[var(--color-border)] bg-white p-6 text-[var(--color-muted-text)]">Bu mağazada şu an aktif paket bulunmuyor.</p>}
         </div>
+      </section>
+      <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
+        <div className="section-heading">
+          <div><p className="eyebrow">Günlük taze</p><h2 className="section-title">Ürünler</h2><p className="section-description">Fiyat ve satış birimini gör, tek dokunuşla aynı mağazalı sepetine ekle.</p></div>
+          <Link href="/sepet" className="button-secondary">Sepeti görüntüle</Link>
+        </div>
+        {store.products.length ? (
+          <div className="mt-7">
+            <StoreCatalogBrowser
+              categoryTree={store.categoryTree}
+              products={store.products}
+              storeId={store.id}
+              serviceAreaId={store.serviceArea?.id ?? null}
+            />
+          </div>
+        ) : <p className="mt-7 rounded-[18px] border border-dashed border-[var(--color-border)] bg-white p-6 text-[var(--color-muted-text)]">Bu mağazada şu an aktif perakende ürün bulunmuyor.</p>}
       </section>
     </div>
     </SiteShell>

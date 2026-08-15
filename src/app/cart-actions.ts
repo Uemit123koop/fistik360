@@ -46,7 +46,7 @@ export async function addToCartAction(input: AddToCartInput): Promise<CartAction
     !isUuid(input.serviceAreaId) ||
     !isUuid(input.itemId) ||
     !quantity ||
-    !["PRODUCT", "PACKAGE"].includes(input.kind)
+    !["PRODUCT", "PACKAGE", "CUSTOM_MIX"].includes(input.kind)
   ) {
     return { ok: false, code: "INVALID", message: "Sepet isteği geçersiz." };
   }
@@ -82,13 +82,20 @@ export async function addToCartAction(input: AddToCartInput): Promise<CartAction
         .eq("is_active", true)
         .eq("is_in_stock", true)
         .maybeSingle()
-    : supabase
-        .from("packages")
-        .select("id")
-        .eq("id", input.itemId)
-        .eq("store_id", input.storeId)
-        .eq("is_active", true)
-        .maybeSingle();
+    : input.kind === "PACKAGE"
+      ? supabase
+          .from("packages")
+          .select("id")
+          .eq("id", input.itemId)
+          .eq("store_id", input.storeId)
+          .eq("is_active", true)
+          .maybeSingle()
+      : supabase
+          .from("cart_custom_mixes")
+          .select("id")
+          .eq("id", input.itemId)
+          .eq("store_id", input.storeId)
+          .maybeSingle();
   const { data: availableItem } = await itemQuery;
   if (!availableItem) {
     return { ok: false, code: "INVALID", message: "Bu ürün şu anda satışta değil." };
@@ -181,7 +188,7 @@ export async function addToCartAction(input: AddToCartInput): Promise<CartAction
     cart = updatedCart;
   }
 
-  const sourceColumn = input.kind === "PRODUCT" ? "retail_product_id" : "package_id";
+  const sourceColumn = input.kind === "PRODUCT" ? "retail_product_id" : input.kind === "PACKAGE" ? "package_id" : "custom_mix_id";
   const { data: existing } = await supabase
     .from("cart_items")
     .select("id, item_quantity")

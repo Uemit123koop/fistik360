@@ -26,7 +26,7 @@ export function readGuestCart(): GuestCartEntry[] {
     return parsed.filter(
       (entry): entry is GuestCartEntry =>
         entry && typeof entry.storeId === "string" && typeof entry.serviceAreaId === "string" &&
-        typeof entry.itemId === "string" && (entry.kind === "PRODUCT" || entry.kind === "PACKAGE") &&
+        typeof entry.itemId === "string" && (entry.kind === "PRODUCT" || entry.kind === "PACKAGE" || entry.kind === "CUSTOM_MIX") &&
         typeof entry.quantity === "number" && entry.quantity > 0,
     );
   } catch {

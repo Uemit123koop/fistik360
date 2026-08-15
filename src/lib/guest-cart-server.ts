@@ -20,24 +20,28 @@ export async function resolveGuestCart(entries: GuestCartEntry[]): Promise<CartV
   const serviceAreaId = entries[0].serviceAreaId;
   const admin = createSupabaseAdminClient();
 
-  const [{ data: store }, { data: area }, { data: delivery }, { data: products }, { data: packages }] =
+  const [{ data: store }, { data: area }, { data: delivery }, { data: products }, { data: packages }, { data: customMixes }] =
     await Promise.all([
       admin.from("stores").select("id, name, logo_url").eq("id", storeId).eq("is_active", true).eq("platform_status", "ACTIVE").maybeSingle(),
       admin.from("store_neighborhoods").select("id, neighborhood_id, neighborhood").eq("id", serviceAreaId).eq("store_id", storeId).eq("is_active", true).maybeSingle(),
       admin.from("store_delivery_settings").select("minimum_order_amount, standard_delivery_fee, free_delivery_threshold").eq("store_id", storeId).maybeSingle(),
       admin.from("retail_products").select("id, name, description, price, quantity, unit, image_url, is_active, is_in_stock").eq("store_id", storeId).in("id", entries.filter((e) => e.kind === "PRODUCT").map((e) => e.itemId)),
       admin.from("packages").select("id, name, package_type, price, image_url, is_active").eq("store_id", storeId).in("id", entries.filter((e) => e.kind === "PACKAGE").map((e) => e.itemId)),
+      admin.from("cart_custom_mixes").select("id, name_snapshot, total_weight_grams, total_price_amount, store_id").eq("store_id", storeId).in("id", entries.filter((e) => e.kind === "CUSTOM_MIX").map((e) => e.itemId)),
     ]);
 
   if (!store || !area) return null;
 
-  const { data: neighborhoodRow } = await admin.from("neighborhoods").select("district_id").eq("id", area.neighborhood_id).maybeSingle();
-  const { data: district } = neighborhoodRow
-    ? await admin.from("districts").select("name, province_id").eq("id", neighborhoodRow.district_id).maybeSingle()
-    : { data: null };
-  const { data: province } = district
-    ? await admin.from("provinces").select("name").eq("id", district.province_id).maybeSingle()
-    : { data: null };
+  // Tek sorguda iç içe embed (neighborhoods -> districts -> provinces): üç
+  // ardışık round-trip yerine tek round-trip, hosted Supabase'e her istekte
+  // ~300ms gidip gelen zinciri ortadan kaldırır.
+  const { data: neighborhoodRow } = (await admin
+    .from("neighborhoods")
+    .select("districts(name, provinces(name))")
+    .eq("id", area.neighborhood_id)
+    .maybeSingle()) as unknown as { data: { districts: { name: string; provinces: { name: string } | null } | null } | null };
+  const district = neighborhoodRow?.districts ?? null;
+  const province = district?.provinces ?? null;
 
   const items: CartViewItem[] = [];
   for (const entry of entries) {
@@ -57,7 +61,7 @@ export async function resolveGuestCart(entries: GuestCartEntry[]): Promise<CartV
         quantity: entry.quantity,
         lineTotal: Math.round(price * entry.quantity * 100) / 100,
       });
-    } else {
+    } else if (entry.kind === "PACKAGE") {
       const pkg = packages?.find((p) => p.id === entry.itemId);
       if (!pkg || !pkg.is_active) continue;
       const price = toNumber(pkg.price);
@@ -70,6 +74,22 @@ export async function resolveGuestCart(entries: GuestCartEntry[]): Promise<CartV
         price,
         imageUrl: pkg.image_url,
         detail: pkg.package_type || "Hazır paket",
+        quantity: entry.quantity,
+        lineTotal: Math.round(price * entry.quantity * 100) / 100,
+      });
+    } else {
+      const mix = customMixes?.find((m) => m.id === entry.itemId);
+      if (!mix) continue;
+      const price = toNumber(mix.total_price_amount);
+      items.push({
+        id: mix.id,
+        cartItemId: `guest:CUSTOM_MIX:${mix.id}`,
+        kind: "CUSTOM_MIX",
+        name: mix.name_snapshot,
+        description: null,
+        price,
+        imageUrl: null,
+        detail: `${toNumber(mix.total_weight_grams)} gram karışım`,
         quantity: entry.quantity,
         lineTotal: Math.round(price * entry.quantity * 100) / 100,
       });

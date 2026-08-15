@@ -2,12 +2,15 @@ import "server-only";
 
 import { cache } from "react";
 import { getServerUser } from "@/lib/auth";
+import { getCatalogMetadata, type CatalogAttributeTag } from "@/lib/catalog-metadata";
 import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 
-export type CartItemKind = "PRODUCT" | "PACKAGE";
+export type CartItemKind = "PRODUCT" | "PACKAGE" | "CUSTOM_MIX";
 
-export interface StorefrontItem {
+export type StorefrontAttributeTag = CatalogAttributeTag;
+
+interface StorefrontItemBase {
   id: string;
   kind: CartItemKind;
   name: string;
@@ -15,6 +18,26 @@ export interface StorefrontItem {
   price: number;
   imageUrl: string | null;
   detail: string;
+}
+
+export interface StorefrontItem extends StorefrontItemBase {
+  subcategoryId: string | null;
+  subcategoryName: string | null;
+  attributeTags: StorefrontAttributeTag[];
+  // Yalnız PRODUCT kalemlerinde dolu — karışım oluşturucunun gramaj bazlı
+  // (adet değil) ürünleri ayıklaması ve gram başı fiyatı hesaplaması için.
+  unit: "gram" | "kg" | "adet" | null;
+  baseQuantity: number | null;
+  // Yalnız PACKAGE kalemlerinde dolu — panelde seçilen gerçek ürünlerden gelir.
+  packageContents: string[];
+  discountPercent: number | null;
+}
+
+export interface StorefrontCategoryNode {
+  id: string;
+  name: string;
+  productCount: number;
+  subcategories: Array<{ id: string; name: string; productCount: number }>;
 }
 
 export interface StorefrontData {
@@ -39,9 +62,10 @@ export interface StorefrontData {
   }>;
   products: StorefrontItem[];
   packages: StorefrontItem[];
+  categoryTree: StorefrontCategoryNode[];
 }
 
-export interface CartViewItem extends StorefrontItem {
+export interface CartViewItem extends StorefrontItemBase {
   cartItemId: string;
   quantity: number;
   lineTotal: number;
@@ -109,14 +133,14 @@ export async function getPublicStorefront(
         .order("neighborhood", { ascending: true }),
       supabase
         .from("retail_products")
-        .select("id, name, description, price, quantity, unit, image_url")
+        .select("id, name, description, price, quantity, unit, image_url, catalog_product_id")
         .eq("store_id", storeId)
         .eq("is_active", true)
         .eq("is_in_stock", true)
         .order("name", { ascending: true }),
       supabase
         .from("packages")
-        .select("id, name, package_type, price, image_url")
+        .select("id, name, package_type, price, discount_percent, image_url")
         .eq("store_id", storeId)
         .eq("is_active", true)
         .order("name", { ascending: true }),
@@ -168,6 +192,71 @@ export async function getPublicStorefront(
     }
   }
 
+  const catalogProductIds = Array.from(
+    new Set((products ?? []).flatMap((product) => (product.catalog_product_id ? [product.catalog_product_id] : []))),
+  );
+
+  const { subcategoryByCatalogProductId, attributeTagsByCatalogProductId, subcategoryRows, mainCategoryRows } =
+    await getCatalogMetadata(supabase, catalogProductIds);
+
+  const subcategoryById = new Map(subcategoryRows.map((row) => [row.id, row]));
+  const mainCategoryById = new Map(mainCategoryRows.map((row) => [row.id, row]));
+
+  const storefrontProducts: StorefrontItem[] = (products ?? []).map((product) => {
+    const subcategory = product.catalog_product_id ? subcategoryByCatalogProductId.get(product.catalog_product_id) : undefined;
+    return {
+      id: product.id,
+      kind: "PRODUCT" as const,
+      name: product.name,
+      description: product.description,
+      price: toNumber(product.price),
+      imageUrl: product.image_url,
+      detail: `${toNumber(product.quantity)} ${product.unit}`,
+      subcategoryId: subcategory?.id ?? null,
+      subcategoryName: subcategory?.name ?? null,
+      attributeTags: product.catalog_product_id ? attributeTagsByCatalogProductId.get(product.catalog_product_id) ?? [] : [],
+      unit: product.unit as "gram" | "kg" | "adet",
+      baseQuantity: toNumber(product.quantity),
+      packageContents: [],
+      discountPercent: null,
+    };
+  });
+
+  const productCountBySubcategoryId = new Map<string, number>();
+  for (const product of storefrontProducts) {
+    if (!product.subcategoryId) continue;
+    productCountBySubcategoryId.set(product.subcategoryId, (productCountBySubcategoryId.get(product.subcategoryId) ?? 0) + 1);
+  }
+
+  const categoryTree: StorefrontCategoryNode[] = Array.from(mainCategoryById.values())
+    .sort((a, b) => a.display_order - b.display_order)
+    .map((mainCategory): StorefrontCategoryNode => {
+      const subcategories = Array.from(subcategoryById.values())
+        .filter((sub) => sub.parent_id === mainCategory.id)
+        .map((sub) => ({ id: sub.id, name: sub.name, productCount: productCountBySubcategoryId.get(sub.id) ?? 0 }))
+        .filter((sub) => sub.productCount > 0)
+        .sort((a, b) => a.name.localeCompare(b.name, "tr"));
+      const productCount = subcategories.reduce((sum, sub) => sum + sub.productCount, 0);
+      return { id: mainCategory.id, name: mainCategory.name, productCount, subcategories };
+    })
+    .filter((category) => category.productCount > 0);
+
+  const packageIds = (packages ?? []).map((item) => item.id);
+  const { data: packageItemRows } = packageIds.length
+    ? await supabase.from("package_items").select("package_id, product_id").in("package_id", packageIds)
+    : { data: [] };
+  const packageContentProductIds = Array.from(new Set((packageItemRows ?? []).map((row) => row.product_id)));
+  const { data: packageContentProducts } = packageContentProductIds.length
+    ? await supabase.from("retail_products").select("id, name").in("id", packageContentProductIds)
+    : { data: [] };
+  const packageContentProductNameById = new Map((packageContentProducts ?? []).map((row) => [row.id, row.name]));
+  const contentsByPackageId = new Map<string, string[]>();
+  for (const row of packageItemRows ?? []) {
+    const productName = packageContentProductNameById.get(row.product_id);
+    if (!productName) continue;
+    contentsByPackageId.set(row.package_id, [...(contentsByPackageId.get(row.package_id) ?? []), productName]);
+  }
+
   return {
     id: store.id,
     name: store.name,
@@ -176,15 +265,7 @@ export async function getPublicStorefront(
     coverUrl: store.cover_url,
     serviceArea,
     serviceAreas,
-    products: (products ?? []).map((product) => ({
-      id: product.id,
-      kind: "PRODUCT" as const,
-      name: product.name,
-      description: product.description,
-      price: toNumber(product.price),
-      imageUrl: product.image_url,
-      detail: `${toNumber(product.quantity)} ${product.unit}`,
-    })),
+    products: storefrontProducts,
     packages: (packages ?? []).map((item) => ({
       id: item.id,
       kind: "PACKAGE" as const,
@@ -193,7 +274,15 @@ export async function getPublicStorefront(
       price: toNumber(item.price),
       imageUrl: item.image_url,
       detail: item.package_type || "Hazır paket",
+      subcategoryId: null,
+      subcategoryName: null,
+      attributeTags: [],
+      unit: null,
+      baseQuantity: null,
+      packageContents: contentsByPackageId.get(item.id) ?? [],
+      discountPercent: toNumber(item.discount_percent) || null,
     })),
+    categoryTree,
   };
 }
 
@@ -235,7 +324,7 @@ export async function getCustomerCart(customerId: string): Promise<CartView | nu
       .single(),
     admin
       .from("cart_items")
-      .select("id, retail_product_id, package_id, item_quantity")
+      .select("id, retail_product_id, package_id, custom_mix_id, item_quantity")
       .eq("cart_id", cart.id)
       .order("created_at", { ascending: true }),
   ]);
@@ -244,14 +333,25 @@ export async function getCustomerCart(customerId: string): Promise<CartView | nu
 
   const productIds = (rows ?? []).flatMap((row) => (row.retail_product_id ? [row.retail_product_id] : []));
   const packageIds = (rows ?? []).flatMap((row) => (row.package_id ? [row.package_id] : []));
-  const [{ data: products }, { data: packages }, { data: neighborhood }, { data: delivery }] = await Promise.all([
+  const customMixIds = (rows ?? []).flatMap((row) => (row.custom_mix_id ? [row.custom_mix_id] : []));
+  const [{ data: products }, { data: packages }, { data: customMixes }, { data: neighborhood }, { data: delivery }] = await Promise.all([
     productIds.length
       ? admin.from("retail_products").select("id, name, description, price, quantity, unit, image_url").in("id", productIds)
       : Promise.resolve({ data: [] }),
     packageIds.length
       ? admin.from("packages").select("id, name, package_type, price, image_url").in("id", packageIds)
       : Promise.resolve({ data: [] }),
-    admin.from("neighborhoods").select("id, name, settlement_type, district_id").eq("id", area.neighborhood_id).single(),
+    customMixIds.length
+      ? admin.from("cart_custom_mixes").select("id, name_snapshot, total_weight_grams, total_price_amount").in("id", customMixIds)
+      : Promise.resolve({ data: [] }),
+    // Tek sorguda iç içe embed (districts -> provinces): ayrı district/province
+    // round-trip'lerini ortadan kaldırır, hosted Supabase'e gidip gelme
+    // gecikmesini (sepet drawer açılışında hissedilen "2 saniye" gecikme) azaltır.
+    admin
+      .from("neighborhoods")
+      .select("id, name, settlement_type, districts(name, provinces(name))")
+      .eq("id", area.neighborhood_id)
+      .single() as unknown as Promise<{ data: { id: string; name: string; settlement_type: string; districts: { name: string; provinces: { name: string } | null } | null } | null }>,
     admin
       .from("store_delivery_settings")
       .select("minimum_order_amount, standard_delivery_fee, free_delivery_threshold")
@@ -259,19 +359,17 @@ export async function getCustomerCart(customerId: string): Promise<CartView | nu
       .single(),
   ]);
 
-  const { data: district } = neighborhood
-    ? await admin.from("districts").select("name, province_id").eq("id", neighborhood.district_id).maybeSingle()
-    : { data: null };
-  const { data: province } = district
-    ? await admin.from("provinces").select("name").eq("id", district.province_id).maybeSingle()
-    : { data: null };
+  const district = neighborhood?.districts ?? null;
+  const province = district?.provinces ?? null;
 
   const productMap = new Map((products ?? []).map((item) => [item.id, item]));
   const packageMap = new Map((packages ?? []).map((item) => [item.id, item]));
+  const customMixMap = new Map((customMixes ?? []).map((item) => [item.id, item]));
   const items = (rows ?? []).flatMap<CartViewItem>((row) => {
     const quantity = toNumber(row.item_quantity);
     const product = row.retail_product_id ? productMap.get(row.retail_product_id) : null;
     const packageItem = row.package_id ? packageMap.get(row.package_id) : null;
+    const customMix = row.custom_mix_id ? customMixMap.get(row.custom_mix_id) : null;
     if (product) {
       const price = toNumber(product.price);
       return [{
@@ -298,6 +396,21 @@ export async function getCustomerCart(customerId: string): Promise<CartView | nu
         price,
         imageUrl: packageItem.image_url,
         detail: packageItem.package_type || "Hazır paket",
+        quantity,
+        lineTotal: Math.round(price * quantity * 100) / 100,
+      }];
+    }
+    if (customMix) {
+      const price = toNumber(customMix.total_price_amount);
+      return [{
+        cartItemId: row.id,
+        id: customMix.id,
+        kind: "CUSTOM_MIX",
+        name: customMix.name_snapshot,
+        description: null,
+        price,
+        imageUrl: null,
+        detail: `${toNumber(customMix.total_weight_grams)} gram karışım`,
         quantity,
         lineTotal: Math.round(price * quantity * 100) / 100,
       }];
