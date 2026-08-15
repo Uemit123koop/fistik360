@@ -272,65 +272,64 @@ export function StoreDeliverySettingsForm({ initial }: Props) {
           <FeedbackMessage feedback={paymentFeedback} />
           <button type="submit" disabled={busy !== null} className="button-primary w-full sm:w-auto">{busy === "payment" ? "Kaydediliyor..." : "Ödeme yöntemlerini kaydet"}</button>
         </form>
-      </section>
 
-      <section className="rounded-[20px] border border-[var(--color-border)] bg-white p-5 shadow-[var(--shadow-soft)] sm:p-6" aria-labelledby="bank-settings-title">
-        <div>
-          <p className="eyebrow">3 · Banka hesabı</p>
-          <h2 id="bank-settings-title" className="mt-2 text-2xl font-bold">Havale hesabı</h2>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-muted-text)]">
-            IBAN yalnız mağaza sahibi tarafından yönetilir; müşteriye sadece kontrollü sipariş akışında gösterilir. Mağaza başına tek hesap tutulur — değiştirmek için önce mevcut hesabı sil.
-          </p>
-        </div>
-        {bankTransferNeedsAccount && <div className="mt-5"><BankTransferWarning urgent /></div>}
+        {payment.bankTransfer && (
+          <div className="mt-6 border-t border-[var(--color-border-soft)] pt-6" aria-labelledby="bank-settings-title">
+            <h3 id="bank-settings-title" className="text-lg font-bold">Havale hesabı</h3>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-muted-text)]">
+              IBAN yalnız mağaza sahibi tarafından yönetilir; müşteriye sadece kontrollü sipariş akışında gösterilir. Mağaza başına tek hesap tutulur — değiştirmek için önce mevcut hesabı sil.
+            </p>
+            {bankTransferNeedsAccount && <div className="mt-5"><BankTransferWarning urgent /></div>}
 
-        {accounts.length === 0 ? (
-          <form onSubmit={addBankAccount} noValidate className="mt-6 rounded-[16px] border border-[var(--color-border-soft)] bg-[var(--color-surface)] p-4 sm:p-5">
-            <div className="grid gap-5 md:grid-cols-2">
-              <label className="form-field" htmlFor="account-holder-name">Hesap sahibi adı
-                <input id="account-holder-name" className="form-control" value={accountHolderName} onChange={(event) => setAccountHolderName(event.target.value)} maxLength={120} autoComplete="name" required />
-              </label>
-              <label className="form-field" htmlFor="store-iban">IBAN
-                <span className="relative block">
-                  <span aria-hidden="true" className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 font-mono font-extrabold tracking-wide text-[var(--color-ink)]">TR</span>
-                  <input
-                    id="store-iban"
-                    className="form-control pl-11 font-mono uppercase tracking-[0.15em]"
-                    value={maskIbanDigits(ibanDigits)}
-                    onChange={(event) => setIbanDigits(extractIbanDigits(event.target.value))}
-                    onPaste={(event) => {
-                      event.preventDefault();
-                      setIbanDigits(extractIbanDigits(event.clipboardData.getData("text")));
-                    }}
-                    inputMode="numeric"
-                    maxLength={IBAN_DIGIT_COUNT + 6}
-                    autoComplete="off"
-                    spellCheck={false}
-                    aria-describedby="store-iban-help"
-                    required
-                  />
-                </span>
-                <span id="store-iban-help" className="text-xs font-medium leading-5 text-[var(--color-muted-text)]">
-                  TR sabit — ardından {IBAN_DIGIT_COUNT} rakam gir ({ibanDigits.length}/{IBAN_DIGIT_COUNT}).
-                </span>
-              </label>
-            </div>
-            <button type="submit" disabled={busy !== null} className="button-secondary mt-4 w-full sm:w-auto">{busy === "bank" ? "Ekleniyor..." : "Banka hesabı ekle"}</button>
-          </form>
-        ) : (
-          <ul className="mt-6 space-y-3">
-            {accounts.map((account) => (
-              <li key={account.id} className="flex flex-col gap-4 rounded-[16px] border border-[var(--color-border)] bg-[var(--color-surface)] p-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0">
-                  <p className="font-extrabold">{account.accountHolderName}</p>
-                  <p className="mt-2 break-all font-mono text-sm text-[var(--color-muted-text)]">{formatIban(account.iban)}</p>
+            {accounts.length === 0 ? (
+              <form onSubmit={addBankAccount} noValidate className="mt-6 rounded-[16px] border border-[var(--color-border-soft)] bg-[var(--color-surface)] p-4 sm:p-5">
+                <div className="grid gap-5 md:grid-cols-2">
+                  <label className="form-field" htmlFor="account-holder-name">Hesap sahibi adı
+                    <input id="account-holder-name" className="form-control" value={accountHolderName} onChange={(event) => setAccountHolderName(event.target.value)} maxLength={120} autoComplete="name" required />
+                  </label>
+                  <label className="form-field" htmlFor="store-iban">IBAN
+                    <span className="relative block">
+                      <span aria-hidden="true" className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 font-mono font-extrabold tracking-wide text-[var(--color-ink)]">TR</span>
+                      <input
+                        id="store-iban"
+                        className="form-control pl-11 font-mono uppercase tracking-[0.15em]"
+                        value={maskIbanDigits(ibanDigits)}
+                        onChange={(event) => setIbanDigits(extractIbanDigits(event.target.value))}
+                        onPaste={(event) => {
+                          event.preventDefault();
+                          setIbanDigits(extractIbanDigits(event.clipboardData.getData("text")));
+                        }}
+                        inputMode="numeric"
+                        maxLength={IBAN_DIGIT_COUNT + 6}
+                        autoComplete="off"
+                        spellCheck={false}
+                        aria-describedby="store-iban-help"
+                        required
+                      />
+                    </span>
+                    <span id="store-iban-help" className="text-xs font-medium leading-5 text-[var(--color-muted-text)]">
+                      TR sabit — ardından {IBAN_DIGIT_COUNT} rakam gir ({ibanDigits.length}/{IBAN_DIGIT_COUNT}).
+                    </span>
+                  </label>
                 </div>
-                <button type="button" onClick={() => void deleteAccount(account)} disabled={busy !== null} className="inline-flex min-h-11 w-full items-center justify-center rounded-full border border-red-200 px-4 text-sm font-extrabold text-red-700 transition-colors hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 disabled:cursor-not-allowed disabled:opacity-55 sm:w-auto" aria-label={`${account.accountHolderName} banka hesabını sil`}>{busy === `delete:${account.id}` ? "Siliniyor..." : "Sil"}</button>
-              </li>
-            ))}
-          </ul>
+                <button type="submit" disabled={busy !== null} className="button-secondary mt-4 w-full sm:w-auto">{busy === "bank" ? "Ekleniyor..." : "Banka hesabı ekle"}</button>
+              </form>
+            ) : (
+              <ul className="mt-6 space-y-3">
+                {accounts.map((account) => (
+                  <li key={account.id} className="flex flex-col gap-4 rounded-[16px] border border-[var(--color-border)] bg-[var(--color-surface)] p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="font-extrabold">{account.accountHolderName}</p>
+                      <p className="mt-2 break-all font-mono text-sm text-[var(--color-muted-text)]">{formatIban(account.iban)}</p>
+                    </div>
+                    <button type="button" onClick={() => void deleteAccount(account)} disabled={busy !== null} className="inline-flex min-h-11 w-full items-center justify-center rounded-full border border-red-200 px-4 text-sm font-extrabold text-red-700 transition-colors hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 disabled:cursor-not-allowed disabled:opacity-55 sm:w-auto" aria-label={`${account.accountHolderName} banka hesabını sil`}>{busy === `delete:${account.id}` ? "Siliniyor..." : "Sil"}</button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="mt-4" aria-live="polite"><FeedbackMessage feedback={bankFeedback} /></div>
+          </div>
         )}
-        <div className="mt-4" aria-live="polite"><FeedbackMessage feedback={bankFeedback} /></div>
       </section>
     </div>
   );
