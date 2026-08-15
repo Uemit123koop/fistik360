@@ -5,6 +5,13 @@ import { useRouter } from "next/navigation";
 
 type RetailUnit = "gram" | "kg" | "adet" | "paket";
 
+export interface SellerProductAttributeTag {
+  attributeKey: string;
+  attributeLabel: string;
+  valueKey: string;
+  valueLabel: string;
+}
+
 export interface SellerProductRow {
   id: string;
   name: string;
@@ -14,14 +21,9 @@ export interface SellerProductRow {
   unit: string;
   is_in_stock: boolean;
   is_active: boolean;
-}
-
-export interface SellerPackageRow {
-  id: string;
-  name: string;
-  package_type: string | null;
-  price: number;
-  is_active: boolean;
+  subcategoryName: string | null;
+  mainCategoryName: string | null;
+  attributeTags: SellerProductAttributeTag[];
 }
 
 function StatusToggle({ checked, onChange, label }: { checked: boolean; onChange: (checked: boolean) => void; label: string }) {
@@ -74,7 +76,23 @@ export function SellerInventoryManager({ initialProducts }: { initialProducts: S
         {products.map((product) => (
           <article key={product.id} className="rounded-[22px] border border-[var(--color-border)] bg-white p-5 shadow-[var(--shadow-card)]">
             <div className="flex items-start justify-between gap-4">
-              <div><p className="text-xs font-extrabold uppercase tracking-[.12em] text-[var(--color-accent)]">{product.category}</p><h2 className="mt-1 text-lg font-bold">{product.name}</h2></div>
+              <div>
+                <p className="text-xs font-extrabold uppercase tracking-[.12em] text-[var(--color-accent)]">
+                  {product.mainCategoryName && product.subcategoryName
+                    ? `${product.mainCategoryName} › ${product.subcategoryName}`
+                    : product.category}
+                </p>
+                <h2 className="mt-1 text-lg font-bold">{product.name}</h2>
+                {product.attributeTags.length > 0 && (
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {product.attributeTags.map((tag) => (
+                      <span key={tag.valueKey} className="inline-flex items-center rounded-full bg-[var(--color-surface)] px-2 py-0.5 text-[10px] font-bold text-[var(--color-muted-text)]">
+                        {tag.valueLabel}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
               <span className={product.is_active ? "badge-success" : "chip"}>{product.is_active ? "Vitrinde" : "Taslak"}</span>
             </div>
             <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -93,49 +111,3 @@ export function SellerInventoryManager({ initialProducts }: { initialProducts: S
   );
 }
 
-export function SellerPackageManager({ initialPackages }: { initialPackages: SellerPackageRow[] }) {
-  const router = useRouter();
-  const [packages, setPackages] = useState(initialPackages);
-  const [saving, setSaving] = useState<string | null>(null);
-  const [message, setMessage] = useState("");
-
-  function update(id: string, patch: Partial<SellerPackageRow>) {
-    setPackages((current) => current.map((item) => item.id === id ? { ...item, ...patch } : item));
-  }
-
-  async function save(item: SellerPackageRow) {
-    setSaving(item.id);
-    setMessage("");
-    const response = await fetch(`/api/store/packages/${item.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ price: item.price, isActive: item.is_active }),
-    });
-    const payload = await response.json();
-    setSaving(null);
-    setMessage(response.ok ? `${item.name} kaydedildi.` : (payload.error ?? "Paket güncellenemedi."));
-    if (response.ok) router.refresh();
-  }
-
-  if (!packages.length) {
-    return <p className="rounded-[18px] border border-dashed border-[var(--color-border)] bg-white p-7 text-[var(--color-muted-text)]">Henüz paket oluşturulmadı.</p>;
-  }
-
-  return (
-    <div>
-      {message && <p role="status" aria-live="polite" className="mb-4 rounded-xl border border-[var(--color-border)] bg-white px-4 py-3 text-sm font-semibold">{message}</p>}
-      <div className="grid gap-4 lg:grid-cols-2">
-        {packages.map((item) => (
-          <article key={item.id} className="rounded-[22px] border border-[var(--color-border)] bg-white p-5 shadow-[var(--shadow-card)]">
-            <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-extrabold uppercase tracking-[.12em] text-[var(--color-accent)]">{item.package_type || "Hazır paket"}</p><h2 className="mt-1 text-lg font-bold">{item.name}</h2></div><span className={item.is_active ? "badge-success" : "chip"}>{item.is_active ? "Vitrinde" : "Taslak"}</span></div>
-            <div className="mt-5 flex flex-wrap items-end justify-between gap-4">
-              <label className="form-field min-w-40 flex-1">Fiyat (TL)<input className="form-control" type="number" min="0.01" step="0.01" value={item.price} onChange={(event) => update(item.id, { price: Number(event.target.value) })} /></label>
-              <StatusToggle checked={item.is_active} onChange={(checked) => update(item.id, { is_active: checked })} label="Vitrinde aktif" />
-              <button type="button" onClick={() => save(item)} disabled={saving === item.id} className="button-primary">{saving === item.id ? "Kaydediliyor..." : "Kaydet"}</button>
-            </div>
-          </article>
-        ))}
-      </div>
-    </div>
-  );
-}
