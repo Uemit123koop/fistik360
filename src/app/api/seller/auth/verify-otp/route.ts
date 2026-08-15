@@ -142,7 +142,7 @@ export async function POST(request: Request) {
         ok: true,
         role,
         warning: "Hesabın açıldı; ana mahalleni panelden tekrar seçmelisin.",
-        redirectTo: "/dashboard/store/profile?onboarding=mahalle",
+        redirectTo: "/dashboard/store/neighborhoods?onboarding=mahalle",
       });
     }
     return NextResponse.json(
@@ -305,6 +305,7 @@ export async function POST(request: Request) {
       { headers: { "Cache-Control": "private, no-store" } },
     );
   } catch (checkoutError) {
+    console.error("[iyzico] initializeCheckoutForm başarısız:", checkoutError instanceof Error ? checkoutError.message : checkoutError);
     await markPurchaseFailed(admin, purchase.id);
     const message = checkoutError instanceof IyzicoNotConfiguredError
       ? "Ödeme sağlayıcısı şu an devre dışı."

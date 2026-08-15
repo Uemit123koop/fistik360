@@ -102,6 +102,7 @@ export function SellerRegistrationForm({ onStepChange }: { onStepChange?: (step:
   const [busy, setBusy] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const [error, setError] = useState("");
+  const [warning, setWarning] = useState<{ message: string; redirectTo: string } | null>(null);
 
   const [billingPlan, setBillingPlan] = useState<BillingPlan | "">("");
   const [pendingLocation, setPendingLocation] = useState<LocationSelection | null>(null);
@@ -285,6 +286,12 @@ export function SellerRegistrationForm({ onStepChange }: { onStepChange?: (step:
       const result = await response.json();
       if (!response.ok) {
         setError(result.error ?? "Kod doğrulanamadı.");
+        return;
+      }
+      if (result.warning) {
+        // Hesap açıldı ama ödeme/mahalle aktivasyonu bir nedenle atlandı — kullanıcı
+        // sebebi görmeden sessizce panele düşmesin, burada durup göstersin.
+        setWarning({ message: result.warning, redirectTo: result.redirectTo ?? "/dashboard" });
         return;
       }
       window.location.href = result.redirectTo ?? "/dashboard";
@@ -597,11 +604,22 @@ export function SellerRegistrationForm({ onStepChange }: { onStepChange?: (step:
             <input className="form-control text-center font-mono text-2xl tracking-[0.32em]" value={otp} onChange={(event) => { setOtp(event.target.value.replace(/\D/g, "").slice(0, 6)); setError(""); }} inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} autoFocus />
           </label>
           {error && <p className="mx-auto mt-4 max-w-xs rounded-[12px] border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800" role="alert">{error}</p>}
-          <div className="mx-auto mt-5 flex max-w-xs flex-col gap-2.5">
-            <button type="button" onClick={() => void verifyOtp()} disabled={busy || otp.length !== 6} className="button-primary w-full">{busy ? "Doğrulanıyor..." : isMultiPlan ? "Doğrula ve ödemeye geç" : "Doğrula ve panele geç"} <ArrowIcon /></button>
-            <button type="button" onClick={() => void requestOtp()} disabled={busy || !otpSent} className="button-secondary w-full">Kodu yeniden gönder</button>
-            <button type="button" onClick={() => setStep(form.sellerType === "NUT_STORE" ? 4 : 2)} disabled={busy} className="text-link mx-auto">Bilgileri düzenle</button>
-          </div>
+          {warning && (
+            <p className="mx-auto mt-4 max-w-xs rounded-[12px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 font-semibold text-amber-900" role="alert">
+              {warning.message}
+            </p>
+          )}
+          {warning ? (
+            <div className="mx-auto mt-5 max-w-xs">
+              <Link href={warning.redirectTo} className="button-primary w-full">Panele git <ArrowIcon /></Link>
+            </div>
+          ) : (
+            <div className="mx-auto mt-5 flex max-w-xs flex-col gap-2.5">
+              <button type="button" onClick={() => void verifyOtp()} disabled={busy || otp.length !== 6} className="button-primary w-full">{busy ? "Doğrulanıyor..." : isMultiPlan ? "Doğrula ve ödemeye geç" : "Doğrula ve panele geç"} <ArrowIcon /></button>
+              <button type="button" onClick={() => void requestOtp()} disabled={busy || !otpSent} className="button-secondary w-full">Kodu yeniden gönder</button>
+              <button type="button" onClick={() => setStep(form.sellerType === "NUT_STORE" ? 4 : 2)} disabled={busy} className="text-link mx-auto">Bilgileri düzenle</button>
+            </div>
+          )}
         </div>
       )}
     </div>

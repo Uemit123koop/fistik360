@@ -59,7 +59,7 @@ export async function POST(request: Request) {
   const admin = createSupabaseAdminClient();
   const { data: existing, error: existingError } = await admin
     .from("seller_registration_intents")
-    .select("id, status, seller_type")
+    .select("id, status, seller_type, auth_user_id")
     .eq("email", email)
     .maybeSingle();
 
@@ -67,10 +67,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Satıcı kaydı şu anda başlatılamadı." }, { status: 503 });
   }
   if (existing?.status === "ROLE_ASSIGNED") {
-    return NextResponse.json(
-      { error: "Bu e-posta ile satıcı hesabı zaten oluşturulmuş. Giriş sayfasından devam edin." },
-      { status: 409 },
-    );
+    // ROLE_ASSIGNED tek başına kanıt değil: bağlı hesap sonradan silinmişse
+    // auth_user_id, FK'nin ON DELETE SET NULL'ıyla boşa düşer ama bu satır
+    // damgalı kalır — hesap gerçekten hâlâ var mı diye kontrol etmeden bu
+    // e-postayı sonsuza dek kilitli tutmayalım.
+    const { data: stillLinkedProfile } = existing.auth_user_id
+      ? await admin.from("profiles").select("id").eq("id", existing.auth_user_id).maybeSingle()
+      : { data: null };
+    if (stillLinkedProfile) {
+      return NextResponse.json(
+        { error: "Bu e-posta ile satıcı hesabı zaten oluşturulmuş. Giriş sayfasından devam edin." },
+        { status: 409 },
+      );
+    }
   }
 
   const acceptedAt = new Date().toISOString();
