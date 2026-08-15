@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { setNeighborhoodPreference } from "@/app/neighborhood-actions";
 import type { LocationOption } from "@/lib/location-types";
 
 type HomeScrollHeroProps = {
@@ -254,19 +255,27 @@ export function HomeScrollHero({ canAccessWholesale }: HomeScrollHeroProps) {
     }, 6700));
   }
 
-  function submitLocation(event: FormEvent<HTMLFormElement>) {
+  async function submitLocation(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!city || !district || !neighborhood) return;
     const provinceItem = provinces.find((item) => item.id === city);
     const districtItem = districts.find((item) => item.id === district);
     const neighborhoodItem = neighborhoods.find((item) => item.id === neighborhood);
     if (!provinceItem || !districtItem || !neighborhoodItem) return;
+    // neighborhoodItem.id, /api/locations üzerinden gelen dış (turkiyeapi.dev) picker id'sidir —
+    // fıstık360'ın kendi `neighborhoods` tablosundaki uuid'i değildir. /magazalar bu uuid'i
+    // bekliyor, bu yüzden setNeighborhoodPreference ile isimden çözümlenmiş local id kullanılır.
+    const preference = await setNeighborhoodPreference({
+      neighborhoodName: neighborhoodItem.name,
+      districtName: districtItem.name,
+      provinceName: provinceItem.name,
+    });
     const search = new URLSearchParams({
       il: provinceItem.name,
       ilce: districtItem.name,
-      mahalle: neighborhoodItem.id,
       mahalleAdi: neighborhoodItem.name,
     });
+    if (preference.id) search.set("mahalle", preference.id);
     router.push(`/magazalar?${search.toString()}`);
   }
 

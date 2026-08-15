@@ -68,14 +68,19 @@ export async function getHomeFeed(neighborhoodId?: string | null, storeLimit = 8
 
   const perStore = await Promise.all(
     stores.map(async (store) => {
+      let areaQuery = supabase
+        .from("store_neighborhoods")
+        .select("id, neighborhood_id, neighborhood, is_primary")
+        .eq("store_id", store.id)
+        .eq("is_active", true);
+      // Müşteri belirli bir mahalle seçtiyse mağaza kartı o mahalleye kilitlenir;
+      // aksi halde (mahalle seçilmemiş genel listeleme) mağazanın ana mahallesi gösterilir.
+      areaQuery = neighborhoodId && isUuid(neighborhoodId)
+        ? areaQuery.eq("neighborhood_id", neighborhoodId)
+        : areaQuery.order("is_primary", { ascending: false });
+
       const [{ data: areas }, { data: products }, { data: packages }] = await Promise.all([
-        supabase
-          .from("store_neighborhoods")
-          .select("id, neighborhood_id, neighborhood, is_primary")
-          .eq("store_id", store.id)
-          .eq("is_active", true)
-          .order("is_primary", { ascending: false })
-          .limit(1),
+        areaQuery.limit(1),
         supabase
           .from("retail_products")
           .select("id, name, description, price, quantity, unit, image_url")

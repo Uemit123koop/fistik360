@@ -7,7 +7,7 @@ export async function setNeighborhoodPreference(picked: {
   provinceName: string;
   districtName: string;
   neighborhoodName: string;
-}) {
+}): Promise<NeighborhoodPreference> {
   const id = await resolveLocalNeighborhoodId(picked.provinceName, picked.districtName, picked.neighborhoodName);
   const preference: NeighborhoodPreference = {
     id,
@@ -21,6 +21,7 @@ export async function setNeighborhoodPreference(picked: {
     maxAge: 60 * 60 * 24 * 180,
     sameSite: "lax",
   });
+  return preference;
 }
 
 export async function clearNeighborhoodPreference() {

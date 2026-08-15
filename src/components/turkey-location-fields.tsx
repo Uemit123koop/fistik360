@@ -201,13 +201,16 @@ export function PublicNeighborhoodFinder({ redirectTo = "/magazalar" }: { redire
           neighborhoodName: location.settlementName,
           districtName: location.districtName,
           provinceName: location.provinceName,
-        }).then(() => {
+        }).then((preference) => {
           const search = new URLSearchParams({
             il: location.provinceName,
             ilce: location.districtName,
-            mahalle: location.settlementId,
             mahalleAdi: location.settlementName,
           });
+          // preference.id, dış (turkiyeapi.dev) picker'ın numaralı id'sinden farklı olarak
+          // fıstık360'ın kendi `neighborhoods` tablosundaki uuid'idir — /magazalar bunu bekler.
+          // Hiçbir mağaza bu mahalleyi henüz aktif etmediyse null döner, filtre uygulanmaz.
+          if (preference.id) search.set("mahalle", preference.id);
           router.push(`${redirectTo}?${search.toString()}`);
           router.refresh();
         });
