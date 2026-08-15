@@ -61,6 +61,13 @@ export interface CheckoutFormRetrieveResult {
   paymentStatus: string;
   paymentId: string | null;
   errorMessage: string | null;
+  // Çağıranın kendi beklediği tutar/para birimi ve conversationId/token ile
+  // karşılaştırıp doğrulaması için — retrieve sonucunun kendisi asla tek başına
+  // yeterli kanıt sayılmamalı.
+  paidPrice: number | null;
+  currency: string | null;
+  conversationId: string | null;
+  token: string | null;
 }
 
 interface IyzicoCredentials {
@@ -114,7 +121,10 @@ async function iyzicoRequest<T>(credentials: IyzicoCredentials, uriPath: string,
     body: requestBody,
   });
 
-  if (!response.ok) throw new Error(`İyzico isteği başarısız (HTTP ${response.status}).`);
+  if (!response.ok) {
+    const bodyText = await response.text().catch(() => "");
+    throw new Error(`İyzico isteği başarısız (HTTP ${response.status}): ${bodyText.slice(0, 500)}`);
+  }
   return (await response.json()) as T;
 }
 
@@ -165,13 +175,22 @@ export async function retrieveCheckoutFormResult(
     paymentStatus?: string;
     paymentId?: string;
     errorMessage?: string;
+    paidPrice?: string | number;
+    currency?: string;
+    conversationId?: string;
+    token?: string;
   }>(credentials, uriPath, { locale: "tr", conversationId, token });
 
   const paymentStatus = raw.paymentStatus ?? raw.status;
+  const paidPrice = raw.paidPrice === undefined || raw.paidPrice === null ? null : Number(raw.paidPrice);
   return {
     ok: raw.status === "success" && paymentStatus === "SUCCESS",
     paymentStatus,
     paymentId: raw.paymentId ?? null,
     errorMessage: raw.errorMessage ?? null,
+    paidPrice: paidPrice !== null && Number.isFinite(paidPrice) ? paidPrice : null,
+    currency: raw.currency ?? null,
+    conversationId: raw.conversationId ?? null,
+    token: raw.token ?? null,
   };
 }

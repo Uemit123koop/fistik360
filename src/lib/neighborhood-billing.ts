@@ -60,7 +60,28 @@ export async function activatePaidServiceAreas(
   storeId: string,
   rawSelections: LocationSelection[],
   purchaseId: string,
-): Promise<{ storeNeighborhoodIds: string[] }> {
+): Promise<{ storeNeighborhoodIds: string[]; claimed: boolean }> {
+  // Atomik kilit: bu satırı yalnız BİR çağrı PENDING -> PROCESSING'e çevirebilir. Aynı
+  // ödeme callback'i birden fazla kez tetiklenirse (çift tıklama, tarayıcı retry),
+  // kazanamayan çağrı hiçbir mahalle işlemi yapmadan mevcut (varsa tamamlanmış) sonucu
+  // döner — mahalle aktivasyon döngüsü hiçbir zaman iki kez aynı anda çalışmaz.
+  const { data: claim } = await admin
+    .from("neighborhood_purchases")
+    .update({ status: "PROCESSING" })
+    .eq("id", purchaseId)
+    .eq("status", "PENDING")
+    .select("id")
+    .maybeSingle();
+
+  if (!claim) {
+    const { data: existing } = await admin
+      .from("neighborhood_purchases")
+      .select("store_neighborhood_ids")
+      .eq("id", purchaseId)
+      .maybeSingle();
+    return { storeNeighborhoodIds: (existing?.store_neighborhood_ids as string[] | null) ?? [], claimed: false };
+  }
+
   const { data: existingPrimary } = await admin
     .from("store_neighborhoods")
     .select("id")
@@ -109,16 +130,18 @@ export async function activatePaidServiceAreas(
     .from("neighborhood_purchases")
     .update({ status: "SUCCESS", store_neighborhood_ids: storeNeighborhoodIds, completed_at: new Date().toISOString() })
     .eq("id", purchaseId)
-    .eq("status", "PENDING");
+    .eq("status", "PROCESSING");
   if (purchaseUpdateError) throw new Error("Ödeme kaydı güncellenemedi.");
 
-  return { storeNeighborhoodIds };
+  return { storeNeighborhoodIds, claimed: true };
 }
 
+// PENDING (henüz kilitlenmemiş) veya PROCESSING (kilitlendi ama aktivasyon sırasında
+// hata oluştu) durumundaki bir satırı FAILED'e çevirir — ikisi de "vazgeç" anlamına gelir.
 export async function markPurchaseFailed(admin: SupabaseClient, purchaseId: string): Promise<void> {
   await admin
     .from("neighborhood_purchases")
     .update({ status: "FAILED", completed_at: new Date().toISOString() })
     .eq("id", purchaseId)
-    .eq("status", "PENDING");
+    .in("status", ["PENDING", "PROCESSING"]);
 }

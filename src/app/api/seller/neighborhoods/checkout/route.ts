@@ -60,15 +60,27 @@ export async function POST(request: Request) {
   if (!billingAddress) {
     return NextResponse.json({ error: "Fatura adresi ve TC Kimlik No eksik veya geçersiz." }, { status: 400 });
   }
-  if (!body?.locationSelection || typeof body.locationSelection !== "object") {
-    return NextResponse.json({ error: "Mahalle seçimi geçersiz." }, { status: 400 });
+  const rawSelections = Array.isArray(body?.locationSelections)
+    ? body.locationSelections
+    : body?.locationSelection && typeof body.locationSelection === "object"
+      ? [body.locationSelection]
+      : [];
+  if (rawSelections.length === 0) {
+    return NextResponse.json({ error: "En az bir mahalle seç." }, { status: 400 });
+  }
+  if (rawSelections.length > 50) {
+    return NextResponse.json({ error: "Tek seferde en fazla 50 mahalle eklenebilir." }, { status: 400 });
   }
 
-  let selection: LocationSelection;
+  let selections: LocationSelection[];
   try {
-    selection = await validateLocationSelection(body.locationSelection as LocationSelection);
+    selections = await Promise.all(rawSelections.map((raw) => validateLocationSelection(raw as LocationSelection)));
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Mahalle seçimi doğrulanamadı." }, { status: 400 });
+  }
+  const uniqueSettlementIds = new Set(selections.map((s) => s.settlementId));
+  if (uniqueSettlementIds.size !== selections.length) {
+    return NextResponse.json({ error: "Aynı mahalle listede birden fazla kez var." }, { status: 400 });
   }
 
   const supabase = await createSupabaseServerClient();
@@ -101,23 +113,27 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Fatura adresi kaydedilemedi." }, { status: 500 });
   }
 
-  const { id: neighborhoodId } = await upsertNeighborhoodRecord(admin, selection).catch(() => ({ id: null }));
-  if (!neighborhoodId) return NextResponse.json({ error: "Mahalle doğrulanamadı." }, { status: 400 });
+  const neighborhoodIds: string[] = [];
+  for (const selection of selections) {
+    const { id: neighborhoodId } = await upsertNeighborhoodRecord(admin, selection).catch(() => ({ id: null }));
+    if (!neighborhoodId) return NextResponse.json({ error: `${selection.settlementName} doğrulanamadı.` }, { status: 400 });
 
-  const { data: existingArea } = await admin
-    .from("store_neighborhoods")
-    .select("id")
-    .eq("store_id", store.id)
-    .eq("neighborhood_id", neighborhoodId)
-    .eq("is_active", true)
-    .maybeSingle();
-  if (existingArea) {
-    return NextResponse.json({ error: "Bu mahalle zaten aktif." }, { status: 409 });
+    const { data: existingArea } = await admin
+      .from("store_neighborhoods")
+      .select("id")
+      .eq("store_id", store.id)
+      .eq("neighborhood_id", neighborhoodId)
+      .eq("is_active", true)
+      .maybeSingle();
+    if (existingArea) {
+      return NextResponse.json({ error: `${selection.settlementName} zaten aktif.` }, { status: 409 });
+    }
+    neighborhoodIds.push(neighborhoodId);
   }
 
   const activeCount = await getActiveAreaCount(admin, store.id);
-  const totalAreasAfter = activeCount + 1;
-  const quote = await calculatePrice(admin, 1, totalAreasAfter, billingInterval as BillingInterval);
+  const totalAreasAfter = activeCount + selections.length;
+  const quote = await calculatePrice(admin, selections.length, totalAreasAfter, billingInterval as BillingInterval);
   if (quote.amount <= 0) {
     return NextResponse.json({ error: "Hesaplanan tutar geçersiz." }, { status: 500 });
   }
@@ -126,13 +142,13 @@ export async function POST(request: Request) {
     .from("neighborhood_purchases")
     .insert({
       store_id: store.id,
-      requested_neighborhood_ids: [neighborhoodId],
+      requested_neighborhood_ids: neighborhoodIds,
       billing_interval: billingInterval,
       total_areas_after: totalAreasAfter,
       unit_price: quote.unitPrice,
       discount_rate: quote.discountRate,
       amount: quote.amount,
-      location_selections: [selection],
+      location_selections: selections,
       status: "PENDING",
     })
     .select("id")
@@ -175,9 +191,9 @@ export async function POST(request: Request) {
       },
       basketItems: [
         {
-          id: neighborhoodId,
+          id: purchase.id,
           price: quote.amount.toFixed(2),
-          name: `Ek mahalle · ${selection.settlementName} (${store.name})`,
+          name: `Ek mahalle (${selections.length} adet) · ${store.name}`,
           category1: "Mahalle Aboneliği",
           itemType: "VIRTUAL",
         },
