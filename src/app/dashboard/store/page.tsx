@@ -10,10 +10,8 @@ const QUICK_ACTIONS = [
   { href: "/dashboard/store/new", title: "Katalogdan ürün seç", text: "Ürünü seç; yalnız fiyat, miktar ve satış birimini belirle.", icon: <PackageIcon className="h-4.5 w-4.5" /> },
   { href: "/dashboard/store/products", title: "Ürünlerimi yönet", text: "Stok ve vitrin aktifliğini hızlıca güncelle.", icon: <ReceiptIcon /> },
   { href: "/dashboard/store/packages", title: "Paketlerimi yönet", text: "Aile, ofis ve hediye paketlerini düzenle.", icon: <PackageIcon className="h-4.5 w-4.5" /> },
-  { href: "/dashboard/store/profile", title: "Mağaza profilim", text: "İşletme adı, mahalle ve mağaza bilgilerini tamamla.", icon: <MapPinIcon className="h-4.5 w-4.5" /> },
-  { href: "/dashboard/store/neighborhoods", title: "Mahallelerim", text: "Ek mahalle ekle, güncel aylık maliyeti ve hacim indirimini gör.", icon: <MapPinIcon className="h-4.5 w-4.5" /> },
+  { href: "/dashboard/store/neighborhoods", title: "Mahallelerim", text: "Mağaza profilini, yayın durumunu ve hizmet mahallelerini tek yerden yönet.", icon: <MapPinIcon className="h-4.5 w-4.5" /> },
   { href: "/dashboard/store/delivery", title: "Teslimat & Ödeme", text: "Kapıda ödeme, kart ve IBAN ayarlarını yönet.", icon: <TruckIcon /> },
-  { href: "/dashboard/store/publish", title: "Yayın durumu", text: "Mağazanı mahallendeki müşterilere aç.", icon: <RocketIcon /> },
   { href: "/dashboard/store/wholesale", title: "Toptan pazar", text: "Doğrulanmış toptancılardan ürün tedarik et.", icon: <ShieldIcon className="h-4.5 w-4.5" /> },
 ];
 
@@ -68,7 +66,7 @@ export default async function StoreDashboardPage() {
           <p className="text-xs font-extrabold uppercase tracking-[.12em] text-amber-800">Onboarding · İlk adım</p>
           <h2 className="mt-2 text-xl font-bold text-[var(--color-ink)]">Ücretsiz ana mahalleni seç</h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-amber-900/75">İl, ilçe ve mahalleni tamamladığında ürünlerin o mahalledeki mağaza vitrininde görünür.</p>
-          <Link href="/dashboard/store/profile" className="button-primary mt-4">Mağaza ve mahalle ayarları</Link>
+          <Link href="/dashboard/store/neighborhoods" className="button-primary mt-4">Mağaza ve mahalle ayarları</Link>
         </section>
       )}
 
@@ -81,7 +79,7 @@ export default async function StoreDashboardPage() {
           <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--color-muted-text)]">
             {store.platform_status === "SUSPENDED" ? "Yayın durumunu çözmek için destek ekibiyle iletişime geç." : "Kontrol listesindeki eksikleri tamamla ve mağazanı mahallendeki müşterilere aç."}
           </p>
-          <Link href="/dashboard/store/publish" className="button-primary mt-4">Yayın durumunu aç</Link>
+          <Link href="/dashboard/store/neighborhoods" className="button-primary mt-4">Yayın durumunu aç</Link>
         </section>
       )}
 

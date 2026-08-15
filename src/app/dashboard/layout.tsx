@@ -26,15 +26,11 @@ const wholesaleLinks = [
 const storeLinks = [
   { href: "/dashboard/store", label: "Genel Bakış" },
   { href: "/dashboard/store/orders", label: "Siparişler" },
-  { href: "/dashboard/store/profile", label: "Mağazam" },
+  { href: "/dashboard/store/neighborhoods", label: "Mahallelerim" },
   { href: "/dashboard/store/delivery", label: "Teslimat & Ödeme" },
-  { href: "/dashboard/store/publish", label: "Yayın Durumu" },
   { href: "/dashboard/store/products", label: "Ürünlerim" },
-  { href: "/dashboard/store/new", label: "Katalogdan Ürün Seç" },
   { href: "/dashboard/store/packages", label: "Paketlerim" },
-  { href: "/dashboard/store/packages/new", label: "Paket Oluştur" },
   { href: "/dashboard/store/wholesale", label: "Toptan Pazar" },
-  { href: "/dashboard/store/profile", label: "Profil" },
 ];
 
 const customerLinks = [

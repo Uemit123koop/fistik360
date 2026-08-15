@@ -25,7 +25,7 @@ export default async function AdminStoresPage() {
   const admin = createSupabaseAdminClient();
   const { data: stores } = await admin
     .from("stores")
-    .select("id, name, slug, phone, province, district, neighborhood, is_active, platform_status, published_at, created_at")
+    .select("id, name, slug, phone, address, province, district, neighborhood, is_active, platform_status, published_at, created_at")
     .order("created_at", { ascending: false })
     .limit(100);
 
@@ -96,8 +96,13 @@ export default async function AdminStoresPage() {
                     <p className="mt-1 text-sm text-[var(--color-muted-text)]">{location || "Mahalle seçilmemiş"}</p>
                     <p className="mt-2 text-xs text-[var(--color-muted-text)]">
                       {areaReady ? "✅ Ana mahalle" : "❌ Ana mahalle yok"} · {productCount > 0 ? `✅ ${productCount} satılabilir ürün` : "❌ Satılabilir ürün yok"}
-                      {store.phone ? ` · ${store.phone}` : ""}
                     </p>
+                    {(store.phone || store.address) && (
+                      <p className="mt-2 rounded-[10px] bg-[var(--color-surface)] px-3 py-2 text-xs leading-5 text-[var(--color-muted-text)]">
+                        <span className="font-bold text-[var(--color-ink)]">İletişim (yalnız yönetim):</span>{" "}
+                        {store.phone || "telefon yok"}{store.address ? ` · ${store.address}` : " · adres yok"}
+                      </p>
+                    )}
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-2">
                     <AdminStoreActions

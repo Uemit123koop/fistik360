@@ -111,7 +111,7 @@ export async function getStorePublishState(supabase: SupabaseClient, userId: str
       label: "Ana hizmet mahallesi",
       description: "Aktif ana mahalleniz seçilmiş olmalı.",
       ready: Boolean(areaResult.data),
-      href: "/dashboard/store/profile",
+      href: "/dashboard/store/neighborhoods",
       actionLabel: "Mahalle seç",
     },
     {
