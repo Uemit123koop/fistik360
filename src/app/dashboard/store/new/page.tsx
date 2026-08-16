@@ -11,7 +11,7 @@ export default async function NewStoreProductPage() {
   const supabase = await createSupabaseServerClient();
   const { data: products } = await supabase
     .from("catalog_products")
-    .select("id, name, category, retail_quantity, retail_unit, wholesale_unit")
+    .select("id, slug, name, category, image_url, retail_quantity, retail_unit, wholesale_unit")
     .eq("is_active", true)
     .eq("available_to_retail", true)
     .order("display_order");

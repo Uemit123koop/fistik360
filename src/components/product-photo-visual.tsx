@@ -26,7 +26,7 @@ export function ProductPhotoVisual({
         alt={alt}
         fill
         sizes={sizes}
-        className="scale-100 object-cover object-top transition-transform duration-700 ease-out group-hover:scale-[1.12]"
+        className="scale-100 object-contain p-2 transition-transform duration-700 ease-out group-hover:scale-[1.07]"
       />
 
       <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/35 to-transparent opacity-0 transition-[transform,opacity] duration-700 ease-out group-hover:translate-x-full group-hover:opacity-100" />

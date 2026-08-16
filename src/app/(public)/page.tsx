@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { HomeBrandSection } from "@/components/home-brand-section";
 import { HomeScrollHero } from "@/components/home-scroll-hero";
-import { ArrowIcon, AtlasImage, MapPinIcon } from "@/components/marketplace-ui";
+import { ArrowIcon, MapPinIcon } from "@/components/marketplace-ui";
 import { PackageHoverCard } from "@/components/package-hover-card";
 import { ProductPhotoVisual } from "@/components/product-photo-visual";
 import { SellerTestimonials } from "@/components/seller-testimonials";
@@ -9,12 +9,16 @@ import { PublicNeighborhoodFinder } from "@/components/turkey-location-fields";
 import { ScrollShowcase } from "@/components/scroll-showcase";
 import { TrustedSellersShowcase } from "@/components/trusted-sellers-showcase";
 import { homeBundleTiers } from "@/lib/bundle-content";
-import { productCategories } from "@/lib/marketplace-content";
+import { getProductCategories } from "@/lib/marketplace-content-server";
 import { getNeighborhoodPreference } from "@/lib/neighborhood";
 import { getServerUser } from "@/lib/auth";
 
 export default async function HomePage() {
-  const [user, neighborhood] = await Promise.all([getServerUser(), getNeighborhoodPreference()]);
+  const [user, neighborhood, productCategories] = await Promise.all([
+    getServerUser(),
+    getNeighborhoodPreference(),
+    getProductCategories(),
+  ]);
   const canAccessWholesale = user?.role === "NUT_STORE" || user?.role === "WHOLESALE_SELLER" || user?.role === "ADMIN";
 
   return (
@@ -31,9 +35,11 @@ export default async function HomePage() {
             {productCategories.map((category) => (
               <Link key={category.name} href="/magazalar" className="group block overflow-hidden rounded-[18px] border border-[var(--color-border)] bg-white text-center shadow-[var(--shadow-card)] transition duration-200 hover:-translate-y-0.5 hover:border-[var(--color-primary-light)] hover:shadow-[var(--shadow-card-hover)] focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-[var(--color-primary)]">
                 {category.heroImage ? (
-                  <ProductPhotoVisual src={category.heroImage} alt={`${category.name} kategorisi`} className="aspect-square" sizes="(max-width: 640px) 50vw, 170px" />
+                  <ProductPhotoVisual src={category.heroImage} alt={`${category.name} kategorisini temsil eden gerçek ürün görseli`} className="aspect-square" sizes="(max-width: 640px) 50vw, 170px" />
                 ) : (
-                  <AtlasImage atlas="category" column={category.column} row={category.row} alt={`${category.name} kategorisi`} className="aspect-square" sizes="(max-width: 640px) 50vw, 170px" />
+                  <div className="flex aspect-square items-center justify-center bg-[var(--color-surface)] p-4 text-center text-xs font-bold text-[var(--color-muted-text)]" role="img" aria-label={`${category.name} katalog görseli hazırlanıyor`}>
+                    Katalog görseli hazırlanıyor
+                  </div>
                 )}
                 <div className="px-2 py-3"><h3 className="text-sm font-bold text-[var(--color-ink)]">{category.name}</h3><p className="mt-0.5 hidden text-xs text-[var(--color-muted-text)] lg:block">{category.description}</p></div>
               </Link>

@@ -3,10 +3,11 @@ export interface AtlasPosition {
   row: number;
 }
 
-export interface ProductCategory extends AtlasPosition {
+export interface ProductCategory {
   name: string;
   description: string;
-  heroImage?: string;
+  catalogProductSlug: string;
+  heroImage?: string | null;
 }
 
 export interface PackageShowcase extends AtlasPosition {
@@ -17,14 +18,14 @@ export interface PackageShowcase extends AtlasPosition {
 }
 
 export const productCategories: ProductCategory[] = [
-  { name: "Fıstık", description: "Antep'in yeşil lezzeti", column: 0, row: 0 },
-  { name: "Fındık", description: "Kavrulmuş ve çiğ", column: 1, row: 0 },
-  { name: "Ceviz", description: "Taze iç ceviz", column: 2, row: 0 },
-  { name: "Badem", description: "Doğal ve kavrulmuş", column: 3, row: 0 },
-  { name: "Kaju", description: "Kremamsı ve iri", column: 0, row: 1 },
-  { name: "Leblebi", description: "Çıtır atıştırmalık", column: 1, row: 1, heroImage: "/assets/products/leblebi-pile.webp" },
-  { name: "Çekirdek", description: "Ay ve kabak çekirdeği", column: 2, row: 1 },
-  { name: "Kuru Meyve", description: "İncir, kayısı ve üzüm", column: 3, row: 1 },
+  { name: "Fıstık", description: "Antep'in yeşil lezzeti", catalogProductSlug: "antep-fistigi-kavrulmus" },
+  { name: "Fındık", description: "Kavrulmuş ve çiğ", catalogProductSlug: "findik-kavrulmus" },
+  { name: "Ceviz", description: "Taze iç ceviz", catalogProductSlug: "ceviz-ici" },
+  { name: "Badem", description: "Doğal ve kavrulmuş", catalogProductSlug: "badem-kavrulmus" },
+  { name: "Kaju", description: "Kremamsı ve iri", catalogProductSlug: "kaju-kavrulmus" },
+  { name: "Leblebi", description: "Çıtır atıştırmalık", catalogProductSlug: "sari-leblebi" },
+  { name: "Çekirdek", description: "Ay ve kabak çekirdeği", catalogProductSlug: "kabak-cekirdegi" },
+  { name: "Kuru Meyve", description: "İncir, kayısı ve üzüm", catalogProductSlug: "kuru-kayisi" },
 ];
 
 export const packageShowcase: PackageShowcase[] = [

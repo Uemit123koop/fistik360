@@ -12,7 +12,7 @@ export default async function StoreProductsPage() {
   const supabase = await createSupabaseServerClient();
   const { data: store } = await supabase.from("stores").select("id").eq("owner_id", user.id).order("created_at").limit(1).maybeSingle();
   const { data: products } = store
-    ? await supabase.from("retail_products").select("id, name, category, price, quantity, unit, is_in_stock, is_active, catalog_product_id").eq("store_id", store.id).order("created_at", { ascending: false })
+    ? await supabase.from("retail_products").select("id, name, category, image_url, price, quantity, unit, is_in_stock, is_active, catalog_product_id").eq("store_id", store.id).order("created_at", { ascending: false })
     : { data: [] };
 
   const catalogProductIds = Array.from(

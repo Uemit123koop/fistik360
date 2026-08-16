@@ -108,7 +108,7 @@ function ProductArtwork({ item, index }: { item: StorefrontItem; index: number }
       <div
         role="img"
         aria-label={`${item.name} ürün görseli`}
-        className="aspect-[4/3] bg-cover bg-center"
+        className="aspect-[4/3] bg-contain bg-center bg-no-repeat"
         style={{ backgroundImage: `url(${JSON.stringify(item.imageUrl)})` }}
       />
     );
@@ -142,7 +142,7 @@ export function CartArtwork({
     <div
       role="img"
       aria-label={`${item.name} görseli`}
-      className={`shrink-0 border border-[var(--color-border-soft)] bg-[#e9dfcf] bg-cover bg-center ${className}`}
+      className={`shrink-0 border border-[var(--color-border-soft)] bg-[#e9dfcf] bg-contain bg-center bg-no-repeat ${className}`}
       style={imageUrl
         ? { backgroundImage: `url(${JSON.stringify(imageUrl)})` }
         : { backgroundImage: `url(/assets/category-atlas.png)`, backgroundSize: "400% 200%", backgroundPosition: `${(index % 4) * 33.333}% ${Math.floor(index / 4) * 100}%` }}

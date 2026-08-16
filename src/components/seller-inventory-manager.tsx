@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -16,6 +17,7 @@ export interface SellerProductRow {
   id: string;
   name: string;
   category: string;
+  image_url: string | null;
   price: number;
   quantity: number;
   unit: string;
@@ -51,13 +53,7 @@ export function SellerInventoryManager({ initialProducts }: { initialProducts: S
     const response = await fetch(`/api/store/products/${product.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        price: product.price,
-        quantity: product.quantity,
-        unit: product.unit,
-        isActive: product.is_active,
-        isInStock: product.is_in_stock,
-      }),
+      body: JSON.stringify({ price: product.price, quantity: product.quantity, unit: product.unit, isActive: product.is_active, isInStock: product.is_in_stock }),
     });
     const payload = await response.json();
     setSaving(null);
@@ -74,35 +70,42 @@ export function SellerInventoryManager({ initialProducts }: { initialProducts: S
       {message && <p role="status" aria-live="polite" className="mb-4 rounded-xl border border-[var(--color-border)] bg-white px-4 py-3 text-sm font-semibold">{message}</p>}
       <div className="grid gap-4 xl:grid-cols-2">
         {products.map((product) => (
-          <article key={product.id} className="rounded-[22px] border border-[var(--color-border)] bg-white p-5 shadow-[var(--shadow-card)]">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-extrabold uppercase tracking-[.12em] text-[var(--color-accent)]">
-                  {product.mainCategoryName && product.subcategoryName
-                    ? `${product.mainCategoryName} › ${product.subcategoryName}`
-                    : product.category}
-                </p>
-                <h2 className="mt-1 text-lg font-bold">{product.name}</h2>
-                {product.attributeTags.length > 0 && (
-                  <div className="mt-1.5 flex flex-wrap gap-1">
-                    {product.attributeTags.map((tag) => (
-                      <span key={tag.valueKey} className="inline-flex items-center rounded-full bg-[var(--color-surface)] px-2 py-0.5 text-[10px] font-bold text-[var(--color-muted-text)]">
-                        {tag.valueLabel}
-                      </span>
-                    ))}
-                  </div>
-                )}
+          <article key={product.id} className="grid overflow-hidden rounded-[22px] border border-[var(--color-border)] bg-white shadow-[var(--shadow-card)] sm:grid-cols-[148px_minmax(0,1fr)]">
+            <div className="relative min-h-40 border-b border-[var(--color-border-soft)] bg-[var(--color-surface)] sm:min-h-full sm:border-b-0 sm:border-r">
+              {product.image_url ? (
+                <Image src={product.image_url} alt={product.name} fill sizes="(max-width: 640px) 100vw, 148px" className="object-contain p-4" />
+              ) : (
+                <span className="flex h-full min-h-40 items-center justify-center px-4 text-center text-xs font-bold text-[var(--color-muted-text)]">Katalog görseli hazırlanıyor</span>
+              )}
+              <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2 py-1 text-[10px] font-extrabold text-[var(--color-primary-dark)] shadow-sm backdrop-blur-sm">Merkezi görsel</span>
+            </div>
+
+            <div className="p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-extrabold uppercase tracking-[.12em] text-[var(--color-accent)]">
+                    {product.mainCategoryName && product.subcategoryName ? `${product.mainCategoryName} › ${product.subcategoryName}` : product.category}
+                  </p>
+                  <h2 className="mt-1 text-lg font-bold">{product.name}</h2>
+                  {product.attributeTags.length > 0 && (
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {product.attributeTags.map((tag) => <span key={tag.valueKey} className="inline-flex items-center rounded-full bg-[var(--color-surface)] px-2 py-0.5 text-[10px] font-bold text-[var(--color-muted-text)]">{tag.valueLabel}</span>)}
+                    </div>
+                  )}
+                </div>
+                <span className={product.is_active ? "badge-success" : "chip"}>{product.is_active ? "Vitrinde" : "Taslak"}</span>
               </div>
-              <span className={product.is_active ? "badge-success" : "chip"}>{product.is_active ? "Vitrinde" : "Taslak"}</span>
-            </div>
-            <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
-              <label className="form-field text-xs">Miktar<input className="form-control" type="number" min="0.01" step="0.01" value={product.quantity} onChange={(event) => update(product.id, { quantity: Number(event.target.value) })} /></label>
-              <label className="form-field text-xs">Birim<select className="form-control" value={product.unit} onChange={(event) => update(product.id, { unit: event.target.value as RetailUnit })}><option value="gram">Gram</option><option value="kg">Kilogram</option><option value="adet">Adet</option><option value="paket">Paket</option></select></label>
-              <label className="form-field col-span-2 text-xs sm:col-span-1">Fiyat (TL)<input className="form-control" type="number" min="0.01" step="0.01" value={product.price} onChange={(event) => update(product.id, { price: Number(event.target.value) })} /></label>
-            </div>
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--color-border-soft)] pt-3">
-              <div className="flex flex-wrap gap-4"><StatusToggle checked={product.is_in_stock} onChange={(checked) => update(product.id, { is_in_stock: checked })} label="Stokta" /><StatusToggle checked={product.is_active} onChange={(checked) => update(product.id, { is_active: checked })} label="Vitrinde aktif" /></div>
-              <button type="button" onClick={() => save(product)} disabled={saving === product.id} className="button-primary">{saving === product.id ? "Kaydediliyor..." : "Değişiklikleri kaydet"}</button>
+
+              <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                <label className="form-field text-xs">Miktar<input className="form-control" type="number" min="0.01" step="0.01" value={product.quantity} onChange={(event) => update(product.id, { quantity: Number(event.target.value) })} /></label>
+                <label className="form-field text-xs">Birim<select className="form-control" value={product.unit} onChange={(event) => update(product.id, { unit: event.target.value as RetailUnit })}><option value="gram">Gram</option><option value="kg">Kilogram</option><option value="adet">Adet</option><option value="paket">Paket</option></select></label>
+                <label className="form-field col-span-2 text-xs sm:col-span-1">Fiyat (TL)<input className="form-control" type="number" min="0.01" step="0.01" value={product.price} onChange={(event) => update(product.id, { price: Number(event.target.value) })} /></label>
+              </div>
+
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--color-border-soft)] pt-3">
+                <div className="flex flex-wrap gap-4"><StatusToggle checked={product.is_in_stock} onChange={(checked) => update(product.id, { is_in_stock: checked })} label="Stokta" /><StatusToggle checked={product.is_active} onChange={(checked) => update(product.id, { is_active: checked })} label="Vitrinde aktif" /></div>
+                <button type="button" onClick={() => save(product)} disabled={saving === product.id} className="button-primary">{saving === product.id ? "Kaydediliyor..." : "Değişiklikleri kaydet"}</button>
+              </div>
             </div>
           </article>
         ))}
@@ -110,4 +113,3 @@ export function SellerInventoryManager({ initialProducts }: { initialProducts: S
     </div>
   );
 }
-

@@ -1,12 +1,10 @@
-"use client";
-
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { WHOLESALE_CATEGORIES } from "@/lib/seller-registration";
+import Link from "next/link";
 
 export function StoreProductForm() {
-  const router = useRouter(); const [busy, setBusy] = useState(false); const [error, setError] = useState("");
-  async function submit(event: React.FormEvent<HTMLFormElement>) { event.preventDefault(); setBusy(true); setError(""); const data = new FormData(event.currentTarget); const payload = Object.fromEntries(data.entries()); try { const response = await fetch("/api/store/products", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...payload, isActive: data.get("isActive") === "true", isInStock: data.get("isInStock") === "true" }) }); const result = await response.json(); if (!response.ok) { setError(result.error ?? "Ürün kaydedilemedi."); return; } router.replace("/dashboard/store/products"); router.refresh(); } catch { setError("Bağlantı kurulamadı."); } finally { setBusy(false); } }
-  return <form onSubmit={submit} className="space-y-6"><div className="grid gap-5 sm:grid-cols-2"><label className="form-field">Ürün adı<input name="name" className="form-control" required maxLength={140} /></label><label className="form-field">Kategori<select name="category" className="form-control" required><option value="">Seçin</option>{WHOLESALE_CATEGORIES.map((item) => <option key={item}>{item}</option>)}</select></label></div><div className="grid gap-5 sm:grid-cols-3"><label className="form-field">Satış birimi<select name="unit" className="form-control" defaultValue="gram"><option value="gram">gram</option><option value="kg">kg</option><option value="adet">adet</option></select></label><label className="form-field">Miktar<input name="quantity" className="form-control" type="number" min="0.01" step="0.01" required /></label><label className="form-field">Fiyat (TL)<input name="price" className="form-control" type="number" min="0.01" step="0.01" required /></label></div><label className="form-field">Açıklama<textarea name="description" className="form-control min-h-28 resize-y" maxLength={1500} /></label><label className="form-field">Görsel URL<input name="imageUrl" className="form-control" type="url" placeholder="https://..." /></label><div className="grid gap-3 sm:grid-cols-2"><label className="flex items-center gap-3 rounded-[14px] bg-[var(--color-surface-strong)] p-4 text-sm font-semibold"><input name="isInStock" value="true" type="checkbox" defaultChecked className="h-5 w-5 accent-[var(--color-primary)]" /> Stokta</label><label className="flex items-center gap-3 rounded-[14px] bg-[var(--color-surface-strong)] p-4 text-sm font-semibold"><input name="isActive" value="true" type="checkbox" className="h-5 w-5 accent-[var(--color-primary)]" /> Vitrinde aktif</label></div>{error && <p className="rounded-[12px] bg-red-50 p-4 text-sm font-semibold text-red-800" role="alert">{error}</p>}<button type="submit" disabled={busy} className="button-primary">{busy ? "Kaydediliyor..." : "Ürünü kaydet"}</button></form>;
+  return (
+    <div className="rounded-[18px] border border-[var(--color-primary-light)] bg-[var(--color-primary-soft)] p-5 text-sm leading-6 text-[var(--color-primary-dark)]">
+      Ürün adı, kategorisi ve görseli Fıstık360 merkezi kataloğundan gelir; satıcı tarafından değiştirilemez.
+      <Link href="/dashboard/store/new" className="ml-1 font-extrabold underline underline-offset-4">Katalogdan ürün seç</Link>
+    </div>
+  );
 }
-
